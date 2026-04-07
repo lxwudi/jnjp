@@ -1,0 +1,16 @@
+node_modules/
+.pnpm-store/
+
+dist/
+server/dist/
+
+.env
+.env.*
+!.env.example
+
+server/data/*.db
+server/data/*.db-shm
+server/data/*.db-wal
+
+*.log
+.DS_Store
