@@ -124,6 +124,48 @@ export function validateIp(ip: string): boolean {
   return pattern.test(ip);
 }
 
+export function validateExecutionSchedule(schedule: string): {
+  ok: boolean;
+  normalized: string;
+  crossesMidnight: boolean;
+  message?: string;
+} {
+  const matched = String(schedule || "")
+    .trim()
+    .match(/^([01]?\d|2[0-3]):([0-5]\d)\s*-\s*([01]?\d|2[0-3]):([0-5]\d)$/);
+
+  if (!matched) {
+    return {
+      ok: false,
+      normalized: "",
+      crossesMidnight: false,
+      message: "执行时窗格式需为 HH:MM - HH:MM，例如 22:00 - 07:30。",
+    };
+  }
+
+  const startHour = Number(matched[1]);
+  const startMinute = Number(matched[2]);
+  const endHour = Number(matched[3]);
+  const endMinute = Number(matched[4]);
+  const start = startHour * 60 + startMinute;
+  const end = endHour * 60 + endMinute;
+
+  if (start === end) {
+    return {
+      ok: false,
+      normalized: "",
+      crossesMidnight: false,
+      message: "执行时窗的开始和结束时间不能相同。",
+    };
+  }
+
+  return {
+    ok: true,
+    normalized: `${String(startHour).padStart(2, "0")}:${String(startMinute).padStart(2, "0")} - ${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`,
+    crossesMidnight: start > end,
+  };
+}
+
 export function strategyLabel(value: StrategyKey): string {
   if (value === "reduce") return "低功耗";
   if (value === "close") return "关闭接口";

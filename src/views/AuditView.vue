@@ -22,7 +22,7 @@ const store = useEnergyConsole();
           <button class="micro-btn" type="button" @click="store.seedAuditLogs">生成示例日志</button>
         </div>
 
-        <div class="table-shell">
+        <div class="table-shell scroll-region scroll-region--xl">
           <table>
             <thead>
               <tr>

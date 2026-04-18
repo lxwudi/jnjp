@@ -9,6 +9,7 @@ import {
   getSecurityGrade,
   getSecurityHint,
   summarize,
+  validateExecutionSchedule,
   validateIp,
 } from "../utils/energy.js";
 import { addExecutionRecord, state } from "./store.js";
@@ -153,7 +154,11 @@ export function sanitizeSnmpConfigInput(input: unknown):
     patch.connectionThreshold = threshold;
   }
   if (source.schedule !== undefined) {
-    patch.schedule = String(source.schedule || "").trim();
+    const checkedSchedule = validateExecutionSchedule(String(source.schedule || "").trim());
+    if (!checkedSchedule.ok) {
+      return { ok: false, message: checkedSchedule.message || "执行时窗格式不合法" };
+    }
+    patch.schedule = checkedSchedule.normalized;
   }
   if (source.strategy !== undefined) {
     const strategy = String(source.strategy);

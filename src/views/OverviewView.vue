@@ -172,7 +172,7 @@ const recentLogs = computed(() => store.auditLogs.slice(0, 5));
           <span class="tag-pill">{{ focusPorts.length }} 个焦点端口</span>
         </div>
 
-        <div v-if="focusPorts.length" class="overview-focus-list">
+        <div v-if="focusPorts.length" class="overview-focus-list scroll-region scroll-region--lg">
           <article v-for="port in focusPorts" :key="port.id" class="overview-focus-item">
             <div class="overview-focus-main">
               <div>
@@ -209,7 +209,7 @@ const recentLogs = computed(() => store.auditLogs.slice(0, 5));
           </article>
         </div>
 
-        <div v-if="store.latestCompletedAgentTopActions.length" class="overview-action-list">
+        <div v-if="store.latestCompletedAgentTopActions.length" class="overview-action-list scroll-region scroll-region--sm">
           <article
             v-for="item in store.latestCompletedAgentTopActions.slice(0, 4)"
             :key="`${item.portId}-${item.actionKey}`"
@@ -237,7 +237,7 @@ const recentLogs = computed(() => store.auditLogs.slice(0, 5));
         <a class="ghost-btn" href="#audit">进入审计页</a>
       </div>
 
-      <div v-if="recentLogs.length" class="overview-log-list">
+      <div v-if="recentLogs.length" class="overview-log-list scroll-region scroll-region--md">
         <article v-for="log in recentLogs" :key="log.id" class="overview-log-item">
           <div class="overview-log-main">
             <span>{{ log.module }}</span>

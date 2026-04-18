@@ -74,7 +74,7 @@ const overviewPage = computed(() => pageList.value[0]);
 const subPages = computed(() => pageList.value.filter((item) => item.key !== "overview"));
 
 const headerSignals = computed(() => [
-  { label: "夜间时窗", value: store.snmpForm.schedule || "--" },
+  { label: "夜间执行窗口", value: store.snmpForm.schedule || "--" },
   { label: "安全等级", value: `${store.securityGrade} 级` },
   { label: "当前时间", value: store.controlClock },
 ]);
@@ -137,15 +137,23 @@ onBeforeUnmount(() => {
             <div>
               <p class="capsule-label">校园交换机智能体平台</p>
               <h1>交换机智能体节能控制台</h1>
-              <p>集中查看自治状态、节能收益、重点端口和最近执行结果。</p>
+              <p>围绕校园交换机的巡检、节能决策、执行追踪和绿色收益，提供一套清晰直观的自治控制界面。</p>
             </div>
           </div>
 
-          <div class="app-header-status">
-            <article v-for="item in headerSignals" :key="item.label" class="header-signal-card">
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-            </article>
+          <div class="app-header-focus">
+            <div class="app-header-focus-copy">
+              <p class="capsule-label">{{ currentPageMeta.tag }}</p>
+              <h2>{{ currentPageMeta.title }}</h2>
+              <p>{{ currentPageMeta.summary }}</p>
+            </div>
+
+            <div class="app-header-status">
+              <article v-for="item in headerSignals" :key="item.label" class="header-signal-card">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+              </article>
+            </div>
           </div>
         </div>
 

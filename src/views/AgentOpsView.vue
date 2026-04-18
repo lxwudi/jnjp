@@ -84,130 +84,170 @@ const subviewMeta = computed(() =>
               </div>
             </div>
 
-            <div class="agent-control-grid">
-              <label>
-                <span>策略动作上限</span>
-                <input v-model.number="store.agentActionLimit" type="number" min="1" max="20" />
-              </label>
-              <label>
-                <span>巡检周期（秒）</span>
-                <input v-model.number="store.agentIntervalSeconds" type="number" min="15" max="3600" />
-              </label>
-              <div class="agent-live-pill">
-                <span>运行状态</span>
-                <strong>{{ store.agentAutonomyStatusLabel }}</strong>
-                <small>{{ store.agentRuntimeLabel }}</small>
-                <small>{{ store.agentAutonomyOutcomeLabel }} · {{ store.agentLatestJobStatusLabel }}</small>
+            <div class="agent-section-card">
+              <div class="agent-section-head">
+                <div>
+                  <span>调度节奏</span>
+                  <strong>自治巡检与动作编排</strong>
+                </div>
+                <small>控制巡检频率、动作数量和当前运行状态。</small>
+              </div>
+
+              <div class="agent-control-grid">
+                <label>
+                  <span>策略动作上限</span>
+                  <input v-model.number="store.agentActionLimit" type="number" min="1" max="20" />
+                </label>
+                <label>
+                  <span>巡检周期（秒）</span>
+                  <input v-model.number="store.agentIntervalSeconds" type="number" min="15" max="3600" />
+                </label>
+                <div class="agent-live-pill">
+                  <span>运行状态</span>
+                  <strong>{{ store.agentAutonomyStatusLabel }}</strong>
+                  <small>{{ store.agentRuntimeLabel }}</small>
+                  <small>{{ store.agentAutonomyOutcomeLabel }} · {{ store.agentLatestJobStatusLabel }}</small>
+                </div>
               </div>
             </div>
 
-            <div class="impact-footer">
-              <span>模型接入</span>
-              <strong>{{ store.agentProviderApiKeyConfigured ? "已配置密钥" : "未配置密钥" }}</strong>
-              <p>
-                {{
-                  store.agentProviderSource === "console"
-                    ? "当前模型设置已生效，智能体会按这里的配置运行。"
-                    : store.agentProviderSource === "env"
-                      ? "当前正在使用系统中的模型配置。"
-                      : "当前还没有可用的模型配置。"
-                }}
+            <div class="agent-section-card">
+              <div class="agent-section-head">
+                <div>
+                  <span>模型接入</span>
+                  <strong>智能体服务配置</strong>
+                </div>
+                <small>支持官方接口和兼容 OpenAI 协议的模型服务。</small>
+              </div>
+
+              <div class="impact-footer">
+                <span>模型接入</span>
+                <strong>{{ store.agentProviderApiKeyConfigured ? "已配置密钥" : "未配置密钥" }}</strong>
+                <p>
+                  {{
+                    store.agentProviderSource === "console"
+                      ? "当前模型设置已生效，智能体会按这里的配置运行。"
+                      : store.agentProviderSource === "env"
+                        ? "当前正在使用系统中的模型配置。"
+                        : "当前还没有可用的模型配置。"
+                  }}
+                </p>
+              </div>
+
+              <div class="form-grid">
+                <label>
+                  <span>模型 Base URL</span>
+                  <input
+                    v-model.trim="store.agentProviderBaseUrl"
+                    placeholder="可留空；DeepSeek 等兼容服务会自动补全地址"
+                  />
+                </label>
+                <label>
+                  <span>模型名称</span>
+                  <input
+                    v-model.trim="store.agentProviderModel"
+                    placeholder="如：gpt-5.1 或兼容模型名"
+                  />
+                </label>
+                <label>
+                  <span>推理强度</span>
+                  <select v-model="store.agentProviderReasoningEffort">
+                    <option value="minimal">minimal</option>
+                    <option value="low">low</option>
+                    <option value="medium">medium</option>
+                    <option value="high">high</option>
+                    <option value="xhigh">xhigh</option>
+                  </select>
+                </label>
+                <label>
+                  <span>模型 API Key</span>
+                  <input
+                    v-model.trim="store.agentProviderApiKeyInput"
+                    type="password"
+                    placeholder="留空则不改动，已保存会显示掩码"
+                  />
+                </label>
+              </div>
+
+              <div class="action-cluster wide">
+                <button class="ghost-btn" type="button" :disabled="store.agentBusy" @click="store.saveAgentProviderConfig">
+                  保存模型接入
+                </button>
+                <button class="ghost-btn" type="button" :disabled="store.agentBusy" @click="store.clearAgentProviderApiKey">
+                  清除已保存 Key
+                </button>
+              </div>
+
+              <p class="feedback-line">
+                {{ store.agentProviderApiKeyConfigured ? `已保存 Key：${store.agentProviderApiKeyPreview || "已配置"}` : "当前尚未保存模型 API Key。" }}
               </p>
             </div>
 
-            <div class="form-grid">
-              <label>
-                <span>模型 Base URL</span>
-                <input
-                  v-model.trim="store.agentProviderBaseUrl"
-                  placeholder="可留空；DeepSeek 等兼容服务会自动补全地址"
-                />
-              </label>
-              <label>
-                <span>模型名称</span>
-                <input
-                  v-model.trim="store.agentProviderModel"
-                  placeholder="如：gpt-5.1 或兼容模型名"
-                />
-              </label>
-              <label>
-                <span>推理强度</span>
-                <select v-model="store.agentProviderReasoningEffort">
-                  <option value="minimal">minimal</option>
-                  <option value="low">low</option>
-                  <option value="medium">medium</option>
-                  <option value="high">high</option>
-                  <option value="xhigh">xhigh</option>
-                </select>
-              </label>
-              <label>
-                <span>模型 API Key</span>
-                <input
-                  v-model.trim="store.agentProviderApiKeyInput"
-                  type="password"
-                  placeholder="留空则不改动，已保存会显示掩码"
-                />
-              </label>
-            </div>
-
-            <div class="action-cluster wide">
-              <button class="ghost-btn" type="button" :disabled="store.agentBusy" @click="store.saveAgentProviderConfig">
-                保存模型接入
-              </button>
-              <button class="ghost-btn" type="button" :disabled="store.agentBusy" @click="store.clearAgentProviderApiKey">
-                清除已保存 Key
-              </button>
-            </div>
-
-            <p class="feedback-line">
-              {{ store.agentProviderApiKeyConfigured ? `已保存 Key：${store.agentProviderApiKeyPreview || "已配置"}` : "当前尚未保存模型 API Key。" }}
-            </p>
-
-            <label class="agent-goal-field">
-              <span>自治目标</span>
-              <textarea
-                v-model.trim="store.agentGoal"
-                rows="4"
-                placeholder="例如：持续保守执行，只自动处理低风险、收益明确且不影响业务连续性的动作。"
-              ></textarea>
-            </label>
-
-            <div class="form-grid">
-              <label>
-                <span>自治巡检</span>
-                <select v-model="store.agentAutonomyEnabled">
-                  <option :value="true">开启</option>
-                  <option :value="false">暂停</option>
-                </select>
-              </label>
-              <label>
-                <span>模型不可用时</span>
-                <select v-model="store.agentAllowHeuristicFallback">
-                  <option :value="true">使用预设策略</option>
-                  <option :value="false">仅使用模型智能体</option>
-                </select>
-              </label>
-            </div>
-
-            <div class="impact-footer">
-              <span>自治反馈</span>
-              <strong>{{ store.agentFeedback }}</strong>
-              <p v-if="agentFeedbackDetail">{{ agentFeedbackDetail }}</p>
-            </div>
-
-            <div class="agent-progress-panel">
-              <div class="agent-progress-head">
-                <span>自治进度</span>
-                <strong>{{ store.agentLatestJobStatusLabel }}</strong>
+            <div class="agent-section-card">
+              <div class="agent-section-head">
+                <div>
+                  <span>目标与兜底</span>
+                  <strong>自治策略偏好</strong>
+                </div>
+                <small>设定总体目标，并决定模型不可用时是否自动切换到预设策略。</small>
               </div>
-              <div v-if="store.agentProgressFeed.length" class="agent-progress-list">
-                <article v-for="item in store.agentProgressFeed" :key="item.id" class="agent-progress-item">
-                  <small>{{ item.createdAt }}</small>
-                  <strong>{{ item.agentName || item.stage }}</strong>
-                  <p>{{ item.message }}</p>
-                </article>
+
+              <label class="agent-goal-field">
+                <span>自治目标</span>
+                <textarea
+                  v-model.trim="store.agentGoal"
+                  rows="4"
+                  placeholder="例如：持续保守执行，只自动处理低风险、收益明确且不影响业务连续性的动作。"
+                ></textarea>
+              </label>
+
+              <div class="form-grid">
+                <label>
+                  <span>自治巡检</span>
+                  <select v-model="store.agentAutonomyEnabled">
+                    <option :value="true">开启</option>
+                    <option :value="false">暂停</option>
+                  </select>
+                </label>
+                <label>
+                  <span>模型不可用时</span>
+                  <select v-model="store.agentAllowHeuristicFallback">
+                    <option :value="true">使用预设策略</option>
+                    <option :value="false">仅使用模型智能体</option>
+                  </select>
+                </label>
               </div>
-              <div v-else class="empty-block">下一轮自治巡检开始后，这里会显示规划、评审和执行的实时进度。</div>
+            </div>
+
+            <div class="agent-section-card">
+              <div class="agent-section-head">
+                <div>
+                  <span>运行反馈</span>
+                  <strong>自治执行动态</strong>
+                </div>
+                <small>查看当前说明、最近巡检结论和执行过程。</small>
+              </div>
+
+              <div class="impact-footer">
+                <span>自治反馈</span>
+                <strong>{{ store.agentFeedback }}</strong>
+                <p v-if="agentFeedbackDetail">{{ agentFeedbackDetail }}</p>
+              </div>
+
+              <div class="agent-progress-panel">
+                <div class="agent-progress-head">
+                  <span>自治进度</span>
+                  <strong>{{ store.agentLatestJobStatusLabel }}</strong>
+                </div>
+                <div v-if="store.agentProgressFeed.length" class="agent-progress-list scroll-region scroll-region--md">
+                  <article v-for="item in store.agentProgressFeed" :key="item.id" class="agent-progress-item">
+                    <small>{{ item.createdAt }}</small>
+                    <strong>{{ item.agentName || item.stage }}</strong>
+                    <p>{{ item.message }}</p>
+                  </article>
+                </div>
+                <div v-else class="empty-block">下一轮自治巡检开始后，这里会显示规划、评审和执行的实时进度。</div>
+              </div>
             </div>
           </article>
 
@@ -332,7 +372,7 @@ const subviewMeta = computed(() =>
             <span class="tag-pill">自治筛选后自动执行</span>
           </div>
 
-          <div class="table-shell">
+          <div class="table-shell scroll-region scroll-region--lg">
             <table>
               <thead>
                 <tr>
@@ -386,78 +426,101 @@ const subviewMeta = computed(() =>
               </div>
             </div>
 
-            <p class="feedback-line">在这里设置执行边界，智能体会按当前条件运行。</p>
-
-            <div class="form-grid">
-              <label>
-                <span>交换机型号</span>
-                <input v-model.trim="store.snmpForm.model" />
-              </label>
-              <label>
-                <span>管理地址</span>
-                <input v-model.trim="store.snmpForm.host" />
-              </label>
-              <label>
-                <span>SNMP 版本</span>
-                <select v-model="store.snmpForm.version">
-                  <option value="v1">SNMP v1</option>
-                  <option value="v2c">SNMP v2c</option>
-                  <option value="v3">SNMP v3</option>
-                </select>
-              </label>
-              <label>
-                <span>端口</span>
-                <input v-model.number="store.snmpForm.port" type="number" min="1" max="65535" />
-              </label>
-              <label>
-                <span>用户名 / Community</span>
-                <input v-model.trim="store.snmpForm.credential" />
-              </label>
-              <label>
-                <span>认证模式</span>
-                <select v-model="store.snmpForm.security">
-                  <option value="authPriv">authPriv</option>
-                  <option value="authNoPriv">authNoPriv</option>
-                  <option value="noAuthNoPriv">noAuthNoPriv</option>
-                </select>
-              </label>
-              <label>
-                <span>利用率阈值 %</span>
-                <input v-model.number="store.snmpForm.usageThreshold" type="number" min="5" max="60" />
-              </label>
-              <label>
-                <span>连接数阈值</span>
-                <input v-model.number="store.snmpForm.connectionThreshold" type="number" min="0" max="100" />
-              </label>
-              <label>
-                <span>工作时段</span>
-                <input v-model.trim="store.snmpForm.schedule" />
-              </label>
-              <label>
-                <span>护栏动作</span>
-                <select v-model="store.snmpForm.strategy">
-                  <option value="reduce">低功耗模式</option>
-                  <option value="close">关闭闲置接口</option>
-                  <option value="hybrid">混合节能策略</option>
-                </select>
-              </label>
-            </div>
-
-            <div class="action-cluster wide">
-              <button class="ghost-btn" type="button" @click="store.recommendThreshold">智能推荐阈值</button>
-              <button class="primary-btn" type="button" @click="store.toggleGuardrails">
-                {{ store.guardrailsEnabled ? "停用护栏" : "启用护栏" }}
-              </button>
-            </div>
-
-            <p class="feedback-line">{{ store.guardrailFeedback }}</p>
-
-            <div class="security-strip">
-              <div>
-                <span>安全等级</span>
-                <strong>{{ store.securityGrade }} 级</strong>
+            <div class="agent-section-card">
+              <div class="agent-section-head">
+                <div>
+                  <span>设备信息</span>
+                  <strong>交换机与 SNMP 接入</strong>
+                </div>
+                <small>用于描述被管设备、接入方式和认证模式。</small>
               </div>
-              <p>{{ store.securityHint }}</p>
+
+              <div class="form-grid">
+                <label>
+                  <span>交换机型号</span>
+                  <input v-model.trim="store.snmpForm.model" />
+                </label>
+                <label>
+                  <span>管理地址</span>
+                  <input v-model.trim="store.snmpForm.host" />
+                </label>
+                <label>
+                  <span>SNMP 版本</span>
+                  <select v-model="store.snmpForm.version">
+                    <option value="v1">SNMP v1</option>
+                    <option value="v2c">SNMP v2c</option>
+                    <option value="v3">SNMP v3</option>
+                  </select>
+                </label>
+                <label>
+                  <span>端口</span>
+                  <input v-model.number="store.snmpForm.port" type="number" min="1" max="65535" />
+                </label>
+                <label>
+                  <span>用户名 / Community</span>
+                  <input v-model.trim="store.snmpForm.credential" />
+                </label>
+                <label>
+                  <span>认证模式</span>
+                  <select v-model="store.snmpForm.security">
+                    <option value="authPriv">authPriv</option>
+                    <option value="authNoPriv">authNoPriv</option>
+                    <option value="noAuthNoPriv">noAuthNoPriv</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="agent-section-card">
+              <div class="agent-section-head">
+                <div>
+                  <span>执行边界</span>
+                  <strong>候选筛选条件</strong>
+                </div>
+                <small>这些条件会影响哪些接口能进入自治评估和自动执行。</small>
+              </div>
+
+              <div class="form-grid">
+                <label>
+                  <span>利用率阈值 %</span>
+                  <input v-model.number="store.snmpForm.usageThreshold" type="number" min="5" max="60" />
+                </label>
+                <label>
+                  <span>连接数阈值</span>
+                  <input v-model.number="store.snmpForm.connectionThreshold" type="number" min="0" max="100" />
+                </label>
+                <label>
+                  <span>夜间执行窗口</span>
+                  <input v-model.trim="store.snmpForm.schedule" placeholder="22:00 - 07:30" />
+                </label>
+                <label>
+                  <span>护栏动作</span>
+                  <select v-model="store.snmpForm.strategy">
+                    <option value="reduce">低功耗模式</option>
+                    <option value="close">关闭闲置接口</option>
+                    <option value="hybrid">混合节能策略</option>
+                  </select>
+                </label>
+              </div>
+
+              <p class="field-note">自治自动执行只会在这里设置的夜间窗口内生效，推荐填写 22:00 - 07:30。</p>
+
+              <div class="action-cluster wide">
+                <button class="ghost-btn" type="button" @click="store.recommendThreshold">智能推荐阈值</button>
+                <button class="primary-btn" type="button" @click="store.toggleGuardrails">
+                  {{ store.guardrailsEnabled ? "停用护栏" : "启用护栏" }}
+                </button>
+              </div>
+
+              <p class="feedback-line">{{ store.guardrailFeedback }}</p>
+
+              <div class="security-strip">
+                <div>
+                  <span>安全等级</span>
+                  <strong>{{ store.securityGrade }} 级</strong>
+                </div>
+                <p>{{ store.securityHint }}</p>
+              </div>
             </div>
           </article>
 

@@ -23,6 +23,8 @@ const databaseDir = path.dirname(databasePath);
 fs.mkdirSync(databaseDir, { recursive: true });
 
 const database = new DatabaseSync(databasePath);
+const LEGACY_DAYTIME_SCHEDULE = "07:30 - 22:00";
+const DEFAULT_NIGHT_SCHEDULE = "22:00 - 07:30";
 
 database.exec(`
   PRAGMA journal_mode = WAL;
@@ -159,6 +161,15 @@ function parseJson<T>(value: unknown, fallback: T): T {
 
 function parseHistory(value: unknown): number[] {
   return parseJson<number[]>(value, []).map((item) => Number(item)).filter((item) => Number.isFinite(item));
+}
+
+function normalizeSnmpConfig(config: SnmpConfig, fallback: SnmpConfig): SnmpConfig {
+  const schedule = String(config.schedule || fallback.schedule || "").trim();
+  return {
+    ...fallback,
+    ...config,
+    schedule: schedule === LEGACY_DAYTIME_SCHEDULE ? DEFAULT_NIGHT_SCHEDULE : schedule || fallback.schedule,
+  };
 }
 
 function countRows(tableName: "interfaces" | "app_settings" | "advice" | "audit_logs" | "execution_records" | "agent_runs"): number {
@@ -432,6 +443,7 @@ function buildInitialState(seed: StateShape): StateShape {
 }
 
 function loadStateFromDatabase(seed: StateShape): StateShape {
+  const loadedSnmpConfig = normalizeSnmpConfig(loadSetting<SnmpConfig>("snmpConfig", seed.snmpConfig), seed.snmpConfig);
   return {
     interfaces: listInterfaceRows().map((row) => mapInterfaceRow(row)),
     advice: loadJsonRows<AdviceRecord>("advice"),
@@ -445,7 +457,7 @@ function loadStateFromDatabase(seed: StateShape): StateShape {
     ),
     autonomyConfig: loadSetting<AutonomyConfig>("autonomyConfig", seed.autonomyConfig),
     agentProviderConfig: loadSetting<AgentProviderConfig>("agentProviderConfig", seed.agentProviderConfig),
-    snmpConfig: loadSetting<SnmpConfig>("snmpConfig", seed.snmpConfig),
+    snmpConfig: loadedSnmpConfig,
   };
 }
 
@@ -479,6 +491,7 @@ export function initializeConsoleState(seed: StateShape): StateShape {
   saveSetting("guardrailsEnabled", loaded.guardrailsEnabled);
   saveSetting("autonomyConfig", loaded.autonomyConfig);
   saveSetting("agentProviderConfig", loaded.agentProviderConfig);
+  saveSetting("snmpConfig", loaded.snmpConfig);
   deleteSetting("automationActive");
   return loaded;
 }

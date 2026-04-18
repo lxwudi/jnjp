@@ -10,6 +10,7 @@ import {
   strategyLabel,
   summarize,
   trendSeries as defaultTrendSeries,
+  validateExecutionSchedule,
   validateIp,
 } from "../lib/energy";
 import type {
@@ -213,7 +214,7 @@ function createEnergyConsoleStore() {
     security: "authPriv",
     usageThreshold: 15,
     connectionThreshold: 4,
-    schedule: "07:30 - 22:00",
+    schedule: "22:00 - 07:30",
     strategy: "hybrid",
   });
 
@@ -842,6 +843,14 @@ function createEnergyConsoleStore() {
 
   async function toggleGuardrails() {
     const nextActive = !guardrailsEnabled.value;
+    const checkedSchedule = validateExecutionSchedule(snmpForm.schedule);
+
+    if (!checkedSchedule.ok) {
+      guardrailFeedback.value = checkedSchedule.message || "执行时窗格式不合法。";
+      return;
+    }
+
+    snmpForm.schedule = checkedSchedule.normalized;
 
     try {
       await requestApi("/api/guardrails/config", {
@@ -1138,7 +1147,7 @@ function createEnergyConsoleStore() {
   const agentAutonomyLastCycleLabel = computed(() => agentAutonomyRuntime.value.lastCycleAt || "尚无记录");
 
   const controlRibbon = computed(() => [
-    { label: "作业时窗", value: snmpForm.schedule || "--", tone: "signal-lime" },
+    { label: "夜间执行窗口", value: snmpForm.schedule || "--", tone: "signal-lime" },
     {
       label: "自治状态",
       value: agentAutonomyStatusLabel.value,

@@ -48,7 +48,7 @@ function defaultSnmpConfig(): SnmpConfig {
     security: "authPriv",
     usageThreshold: 15,
     connectionThreshold: 4,
-    schedule: "07:30 - 22:00",
+    schedule: "22:00 - 07:30",
     strategy: "hybrid",
   };
 }

@@ -122,7 +122,7 @@ const store = useEnergyConsole();
             </div>
           </div>
 
-          <div class="legend-column">
+          <div class="legend-column scroll-region scroll-region--sm">
             <div v-for="group in store.donutGroups" :key="group.label" class="legend-line">
               <i :style="{ background: group.color }"></i>
               <span>{{ group.label }}</span>
