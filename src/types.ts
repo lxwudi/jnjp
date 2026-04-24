@@ -69,6 +69,17 @@ export interface AgentActionRecord {
   riskScore: number;
   riskLevel: "低" | "中" | "高";
   reasons: string[];
+  knowledgeRefs: AgentKnowledgeReference[];
+}
+
+export interface AgentKnowledgeReference {
+  docId: string;
+  title: string;
+  sourceName: string;
+  category: string;
+  publishedAt: string;
+  snippet: string;
+  relevanceScore: number;
 }
 
 export interface AgentEngineInfo {

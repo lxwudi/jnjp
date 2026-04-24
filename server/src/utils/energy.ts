@@ -1,5 +1,6 @@
 import type {
   AdviceRecord,
+  AgentRunRecord,
   ExecutionRecord,
   InterfaceRecord,
   MetricsSummary,
@@ -68,7 +69,7 @@ export function validateExecutionSchedule(schedule: string): {
       ok: false,
       normalized: "",
       crossesMidnight: false,
-      message: "执行时窗格式需为 HH:MM - HH:MM，例如 22:00 - 07:30",
+      message: "执行时窗格式需为 HH:MM - HH:MM，例如 00:00 - 23:59",
     };
   }
 
@@ -174,21 +175,46 @@ export function getSecurityHint(grade: "A" | "B" | "C"): string {
   return "当前配置以兼容性为主，建议根据设备情况提升安全等级。";
 }
 
+function findMeaningfulAgentRun(agentRuns: AgentRunRecord[]): AgentRunRecord | null {
+  return (
+    agentRuns.find((run) => {
+      const selectedCount = Number(run.plan?.selectedCount || 0);
+      const simulatedSaving = Number(run.simulation?.totals?.savingKwh || 0);
+      const executedImpact = Number(run.execution?.totalImpact || 0);
+      return selectedCount > 0 || simulatedSaving > 0 || executedImpact > 0;
+    }) ?? null
+  );
+}
+
+function estimateProjectedSaving(port: InterfaceRecord, strategy: StrategyKey): number {
+  const before = Number(port.usage || 0);
+  let after = before;
+
+  if (strategy === "close") {
+    after = 0;
+  } else if (strategy === "hybrid") {
+    after = port.connections === 0 ? 0 : Math.max(0, Math.round(before * 0.52));
+  } else {
+    after = Math.max(0, Math.round(before * 0.45));
+  }
+
+  return Number(Math.max(before - after, 0).toFixed(1));
+}
+
 export function summarize(
   interfaces: InterfaceRecord[],
   advice: AdviceRecord[],
+  executionRecords: ExecutionRecord[],
+  agentRuns: AgentRunRecord[],
   manualThreshold: number,
   idleDuration: number,
   snmpConfig: SnmpConfig,
 ): MetricsSummary {
   const appliedAdvice = advice.filter((item) => item.applied);
   const pendingAdvice = advice.filter((item) => !item.applied);
+  const latestMeaningfulRun = findMeaningfulAgentRun(agentRuns);
   const idlePorts = interfaces.filter((port) => !port.applied && getInterfaceStatus(port, manualThreshold).className === "danger");
-  const totalSaving = appliedAdvice.reduce((sum, item) => sum + item.impact, 0);
-  const projectedSaving = advice.reduce((sum, item) => sum + item.impact, 0);
-  const totalHours = appliedAdvice.length * idleDuration * 12;
-  const carbon = totalSaving * CARBON_FACTOR;
-  const trees = totalSaving * TREE_FACTOR;
+  const realizedSavingFromAdvice = appliedAdvice.reduce((sum, item) => sum + item.impact, 0);
   const guardrailCandidates = interfaces.filter((port) => {
     if (port.applied) return false;
     const avgHistory = average(port.history) || port.usage;
@@ -202,20 +228,39 @@ export function summarize(
     const weight = port.connections === 0 ? 3.4 : 2.1;
     return sum + (snmpConfig.usageThreshold + 16 - port.usage) * weight;
   }, 0);
+  const realizedSavingFromRecords = executionRecords.reduce((sum, record) => sum + Number(record.impact || 0), 0);
+  const totalSaving = Number(
+    (realizedSavingFromRecords > 0 ? realizedSavingFromRecords : realizedSavingFromAdvice).toFixed(1),
+  );
+  const projectedFromAdvice = advice.reduce((sum, item) => sum + item.impact, 0);
+  const projectedFromCandidates = guardrailCandidates.reduce(
+    (sum, port) => sum + estimateProjectedSaving(port, snmpConfig.strategy),
+    0,
+  );
+  const projectedFromRun = Number(latestMeaningfulRun?.simulation?.totals?.savingKwh || 0);
+  const projectedSaving = Number(Math.max(projectedFromAdvice, projectedFromCandidates, projectedFromRun).toFixed(1));
+  const executedActionCount = executionRecords.length > 0 ? executionRecords.length : appliedAdvice.length;
+  const totalHours = executedActionCount * idleDuration * 12;
+  const carbonValue = totalSaving * CARBON_FACTOR;
+  const treesValue = totalSaving * TREE_FACTOR;
   const riskLevel: "低" | "中" =
     guardrailCandidates.some((port) => variance(port.history) > 28) || snmpConfig.connectionThreshold >= 8 ? "中" : "低";
-  const highConfidenceCount = advice.filter((item) => item.confidence >= 80).length;
-  const meanConfidence = Math.round(average(advice.map((item) => item.confidence)));
+  const confidenceSource = advice.length
+    ? advice.map((item) => item.confidence)
+    : latestMeaningfulRun?.plan.actions.map((item) => item.confidence) ?? [];
+  const highConfidenceCount = confidenceSource.filter((value) => value >= 80).length;
+  const meanConfidence = confidenceSource.length ? Math.round(average(confidenceSource)) : 0;
 
   return {
     pendingAdvice,
     appliedAdvice,
+    executedActionCount,
     idlePorts,
     totalSaving,
     projectedSaving,
     totalHours,
-    carbon,
-    trees,
+    carbon: carbonValue,
+    trees: treesValue,
     guardrailCandidates,
     monthlyGuardrailSaving,
     riskLevel,

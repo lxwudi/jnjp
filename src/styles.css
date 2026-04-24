@@ -1690,6 +1690,51 @@ td {
   color: var(--text);
 }
 
+.reason-stack {
+  display: grid;
+  gap: 10px;
+  min-width: 260px;
+}
+
+.reason-stack p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.knowledge-hit-list {
+  display: grid;
+  gap: 8px;
+}
+
+.knowledge-hit-card {
+  padding: 10px 12px;
+  border: 1px solid rgba(16, 164, 183, 0.14);
+  background: rgba(255, 255, 255, 0.74);
+  border-radius: 12px;
+}
+
+.knowledge-hit-card strong {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--headline-cn);
+  color: var(--text-main);
+}
+
+.knowledge-hit-card small {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font: 700 0.7rem/1.4 var(--mono);
+  letter-spacing: 0.04em;
+}
+
+.knowledge-hit-card p {
+  margin: 0;
+  color: var(--steel);
+  line-height: 1.55;
+}
+
 tbody tr:hover {
   background: rgba(16, 164, 183, 0.04);
 }

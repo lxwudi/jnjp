@@ -139,7 +139,7 @@ export function validateExecutionSchedule(schedule: string): {
       ok: false,
       normalized: "",
       crossesMidnight: false,
-      message: "执行时窗格式需为 HH:MM - HH:MM，例如 22:00 - 07:30。",
+      message: "执行时窗格式需为 HH:MM - HH:MM，例如 00:00 - 23:59。",
     };
   }
 
@@ -250,6 +250,7 @@ export function summarize(
 ): {
   pendingAdvice: AdviceRecord[];
   appliedAdvice: AdviceRecord[];
+  executedActionCount: number;
   idlePorts: InterfaceRecord[];
   totalSaving: number;
   projectedSaving: number;
@@ -291,6 +292,7 @@ export function summarize(
   return {
     pendingAdvice,
     appliedAdvice,
+    executedActionCount: appliedAdvice.length,
     idlePorts,
     totalSaving,
     projectedSaving,

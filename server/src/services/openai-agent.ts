@@ -23,6 +23,7 @@ import type {
 import { average, clamp, getInterfaceStatus, isWithinSchedule } from "../utils/energy.js";
 import { getMetrics } from "./console.js";
 import { createAgentRunFromPlannedActions, evaluatePortAction } from "./agents.js";
+import { searchKnowledgeBase } from "./knowledge-base.js";
 import { state } from "./store.js";
 
 type ToolCallLike = {
@@ -360,12 +361,27 @@ function estimatePortActionTool(args: Record<string, unknown>) {
     actionKey,
     manualThreshold: state.manualThreshold,
     inSchedule: isWithinSchedule(state.snmpConfig.schedule),
+    goal: asString(args.goal),
   });
 
   return {
     ok: true,
     action,
   };
+}
+
+function searchKnowledgeBaseTool(args: Record<string, unknown>) {
+  const portId = asString(args.portId);
+  const actionKey = asString(args.actionKey) as StrategyKey;
+  const port = portId ? state.interfaces.find((item) => item.id === portId) ?? null : null;
+
+  return searchKnowledgeBase({
+    query: asString(args.query),
+    goal: asString(args.goal),
+    port,
+    actionKey: ["close", "reduce", "hybrid"].includes(actionKey) ? actionKey : null,
+    limit: clamp(asInteger(args.limit, 3), 1, 6),
+  });
 }
 
 function parseSubmittedAction(input: unknown): SubmittedAgentPlanAction | null {
@@ -457,13 +473,14 @@ function parseReviewOutcomeFromContent(content: unknown): ReviewOutcome | null {
 function buildPlannerInstructions(goal: string, actionLimit: number): string {
   return [
     "你是校园交换机智能体节能控制台中的规划智能体。",
-    "你的工作不是凭空想象，而是必须通过工具读取当前接口池、现有建议和动作估算结果，再提交一份可执行的节能计划。",
+    "你的工作不是凭空想象，而是必须通过工具读取当前接口池、现有建议、知识库依据和动作估算结果，再提交一份可执行的节能计划。",
     "优先目标：在尽量不影响业务连续性的前提下，提出收益明确、风险可解释的节能动作。",
     "不要重复选择已执行过的接口，除非工具结果明确要求 includeApplied=true 并且你有充分理由。",
-    "必须先调用 get_console_snapshot 和 list_interfaces，再对拟纳入计划的接口调用 estimate_port_action。",
+    "必须先调用 get_console_snapshot 和 list_interfaces，再对拟纳入计划的接口调用 search_knowledge_base 和 estimate_port_action。",
     `最多只能提交 ${actionLimit} 个动作。不要虚构接口 ID，不要提交未估算过的动作。`,
     "如果本轮没有合适动作，也必须调用 submit_strategy_plan，并将 selectedActions 传为空数组，同时说明原因。",
     "如果计划中包含高风险或不确定动作，应使用 manual 门控；只有在整体风险低且理由充分时才可使用 auto 门控。",
+    "输出理由时应引用知识库检索结论，说明该动作依据了哪类制度、手册或复盘经验。",
     "完成分析后，必须调用 submit_strategy_plan 工具提交结构化结果，不要输出普通文本作为最终答案。",
     `本轮用户目标：${goal}`,
   ].join("\n");
@@ -562,6 +579,24 @@ function getPlannerToolDefinitions(actionLimit: number): Tool[] {
     },
     {
       type: "function",
+      name: "search_knowledge_base",
+      description: "检索本地校园网络知识库，获取制度、设备手册、复盘和风险基线，为策略提供依据。",
+      strict: true,
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          query: { type: "string" },
+          goal: { type: "string" },
+          portId: { type: "string" },
+          actionKey: { type: "string", enum: ["close", "reduce", "hybrid"] },
+          limit: { type: "integer", minimum: 1, maximum: 6 },
+        },
+        required: ["query", "goal", "portId", "actionKey", "limit"],
+      },
+    },
+    {
+      type: "function",
       name: FINAL_PLAN_TOOL_NAME,
       description: "提交最终节能计划。只有在完成必要工具调用后才能调用该函数。",
       strict: true,
@@ -604,6 +639,7 @@ function getPlannerToolHandlers(): Record<string, ToolHandler> {
     list_interfaces: (args) => listInterfacesTool(args),
     list_existing_advice: (args) => listExistingAdviceTool(args),
     estimate_port_action: (args) => estimatePortActionTool(args),
+    search_knowledge_base: (args) => searchKnowledgeBaseTool(args),
   };
 }
 
@@ -1265,6 +1301,7 @@ export async function createOpenAIAgentRun(input: {
         actionKey: item.actionKey,
         manualThreshold: state.manualThreshold,
         inSchedule,
+        goal: resolvedGoal,
         extraReasons: [
           `LLM 策略理由：${item.rationale}`,
           `收益判断：${item.expectedBenefit}`,

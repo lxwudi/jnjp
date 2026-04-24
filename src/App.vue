@@ -74,7 +74,7 @@ const overviewPage = computed(() => pageList.value[0]);
 const subPages = computed(() => pageList.value.filter((item) => item.key !== "overview"));
 
 const headerSignals = computed(() => [
-  { label: "夜间执行窗口", value: store.snmpForm.schedule || "--" },
+  { label: "执行时窗", value: store.snmpForm.schedule || "--" },
   { label: "安全等级", value: `${store.securityGrade} 级` },
   { label: "当前时间", value: store.controlClock },
 ]);

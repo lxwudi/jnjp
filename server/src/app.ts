@@ -4,6 +4,7 @@ import { attachAuthUser } from "./services/auth.js";
 import { agentRouter } from "./routes/agents.js";
 import { auditRouter } from "./routes/audit.js";
 import { authRouter } from "./routes/auth.js";
+import { demoRouter } from "./routes/demo.js";
 import { guardrailsRouter } from "./routes/guardrails.js";
 import { adviceRouter, interfacesRouter, manualRouter } from "./routes/interfaces.js";
 import { reportRouter, statsRouter } from "./routes/stats.js";
@@ -34,6 +35,7 @@ export function createApp() {
   app.use("/api/reports", reportRouter);
   app.use("/api/audit", auditRouter);
   app.use("/api/agents", agentRouter);
+  app.use("/api/demo", demoRouter);
 
   app.use("/api", (_req, res) => {
     sendError(res, 404, "接口不存在");

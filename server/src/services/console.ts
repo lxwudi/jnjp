@@ -15,7 +15,15 @@ import {
 import { addExecutionRecord, state } from "./store.js";
 
 export function getMetrics() {
-  return summarize(state.interfaces, state.advice, state.manualThreshold, state.idleDuration, state.snmpConfig);
+  return summarize(
+    state.interfaces,
+    state.advice,
+    state.executionRecords,
+    state.agentRuns,
+    state.manualThreshold,
+    state.idleDuration,
+    state.snmpConfig,
+  );
 }
 
 export function summarizeNow(): OverviewSnapshot {

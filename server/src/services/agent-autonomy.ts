@@ -206,6 +206,7 @@ async function createFallbackRun(
     snmpConfig: state.snmpConfig,
     operator: AUTONOMY_OPERATOR.username,
     actionLimit: config.actionLimit,
+    goal: config.goal,
   });
 
   run.jobId = jobId;
@@ -473,4 +474,23 @@ export function getAgentAutonomySnapshot(): AgentAutonomySnapshot {
     config: { ...config },
     runtime: { ...runtime },
   };
+}
+
+export function hydrateAgentAutonomyRuntime(snapshot: Partial<AutonomyRuntimeSnapshot>): void {
+  if (snapshot.status) runtime.status = snapshot.status;
+  if (snapshot.currentJobId !== undefined) runtime.currentJobId = snapshot.currentJobId;
+  if (snapshot.currentRunId !== undefined) runtime.currentRunId = snapshot.currentRunId;
+  if (snapshot.lastRunId !== undefined) runtime.lastRunId = snapshot.lastRunId;
+  if (snapshot.lastCycleAt !== undefined) runtime.lastCycleAt = snapshot.lastCycleAt;
+  if (snapshot.lastCycleAtISO !== undefined) runtime.lastCycleAtISO = snapshot.lastCycleAtISO;
+  if (snapshot.lastMessage !== undefined) runtime.lastMessage = snapshot.lastMessage;
+  if (snapshot.lastOutcome !== undefined) runtime.lastOutcome = snapshot.lastOutcome;
+}
+
+export function suspendAgentAutonomySchedule(): void {
+  if (cycleTimer) {
+    clearTimeout(cycleTimer);
+    cycleTimer = null;
+  }
+  started = false;
 }

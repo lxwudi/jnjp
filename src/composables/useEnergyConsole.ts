@@ -46,6 +46,24 @@ interface OverviewPayload {
   idleDuration: number;
   guardrailsEnabled: boolean;
   snmpConfig: SnmpConfig;
+  metrics?: OverviewMetricsPayload;
+}
+
+interface OverviewMetricsPayload {
+  pendingAdvice: AdviceRecord[];
+  appliedAdvice: AdviceRecord[];
+  executedActionCount: number;
+  idlePorts: InterfaceRecord[];
+  totalSaving: number;
+  projectedSaving: number;
+  totalHours: number;
+  carbon: number;
+  trees: number;
+  guardrailCandidates: InterfaceRecord[];
+  monthlyGuardrailSaving: number;
+  riskLevel: "低" | "中";
+  highConfidenceCount: number;
+  meanConfidence: number;
 }
 
 interface ManualAnalyzePayload extends OverviewPayload {
@@ -214,7 +232,7 @@ function createEnergyConsoleStore() {
     security: "authPriv",
     usageThreshold: 15,
     connectionThreshold: 4,
-    schedule: "22:00 - 07:30",
+    schedule: "00:00 - 23:59",
     strategy: "hybrid",
   });
 
@@ -231,6 +249,7 @@ function createEnergyConsoleStore() {
   const authToken = ref("");
   const recommendedThresholdServer = ref(15);
   const trendLabels = ref<string[]>([...defaultTrendLabels]);
+  const overviewMetrics = ref<OverviewMetricsPayload | null>(null);
   const trendSeriesData = ref<TrendSeriesItem[]>(
     defaultTrendSeries.map((item) => ({ label: item.label, color: item.color, values: [...item.values] })),
   );
@@ -449,6 +468,7 @@ function createEnergyConsoleStore() {
 
     guardrailsEnabled.value = Boolean(payload.guardrailsEnabled);
     syncSnmpForm(payload.snmpConfig);
+    overviewMetrics.value = payload.metrics ?? null;
   }
 
   async function loadTrendStats() {
@@ -1096,6 +1116,7 @@ function createEnergyConsoleStore() {
         lastOutcome: "failed",
       };
       recommendedThresholdServer.value = computeRecommendedThreshold(interfaces.value);
+      overviewMetrics.value = null;
       formError.value = true;
       formFeedback.value = `服务连接失败，当前显示示例数据：${toMessage(error)}`;
       guardrailFeedback.value = "当前未连接服务，执行边界和保存操作暂不可用。";
@@ -1113,6 +1134,7 @@ function createEnergyConsoleStore() {
   }
 
   const heroMetrics = computed(() =>
+    overviewMetrics.value ??
     summarize(interfaces.value, advice.value, Number(manualThreshold.value), Number(idleDuration.value), snmpForm),
   );
   const recommendedThreshold = computed(() =>
@@ -1147,7 +1169,7 @@ function createEnergyConsoleStore() {
   const agentAutonomyLastCycleLabel = computed(() => agentAutonomyRuntime.value.lastCycleAt || "尚无记录");
 
   const controlRibbon = computed(() => [
-    { label: "夜间执行窗口", value: snmpForm.schedule || "--", tone: "signal-lime" },
+    { label: "执行时窗", value: snmpForm.schedule || "--", tone: "signal-lime" },
     {
       label: "自治状态",
       value: agentAutonomyStatusLabel.value,
@@ -1162,7 +1184,7 @@ function createEnergyConsoleStore() {
   ]);
 
   const tacticalNotes = computed(() => [
-    { label: "夜巡低峰窗口", value: snmpForm.schedule || "--" },
+    { label: "当前执行时窗", value: snmpForm.schedule || "--" },
     { label: "预估碳回收", value: `${heroMetrics.value.carbon.toFixed(1)} kg CO2` },
     { label: "安全等级", value: `${securityGrade.value} 级` },
     { label: "自治结果", value: agentAutonomyOutcomeLabel.value },
@@ -1244,11 +1266,17 @@ function createEnergyConsoleStore() {
     { label: "自治执行", value: agentAutonomyOutcomeLabel.value, state: "ready" },
   ]);
 
-  const donutGroups = computed(() => [
-    { label: "关闭接口", value: advice.value.filter((item) => item.action.includes("关闭")).length, color: "#c5ff48" },
-    { label: "低功耗", value: advice.value.filter((item) => item.action.includes("低功耗")).length, color: "#00c2ff" },
-    { label: "模式调整", value: advice.value.filter((item) => item.action.includes("工作模式")).length, color: "#ff7c45" },
-  ]);
+  const donutGroups = computed(() => {
+    const sourceActions = advice.value.length
+      ? advice.value.map((item) => item.action)
+      : (latestCompletedAgentRun.value?.plan.actions ?? []).map((item) => item.actionLabel);
+
+    return [
+      { label: "关闭接口", value: sourceActions.filter((item) => item.includes("关闭")).length, color: "#c5ff48" },
+      { label: "低功耗", value: sourceActions.filter((item) => item.includes("低功耗")).length, color: "#00c2ff" },
+      { label: "模式调整", value: sourceActions.filter((item) => item.includes("调整") || item.includes("模式")).length, color: "#ff7c45" },
+    ];
+  });
 
   const donutTotal = computed(() => donutGroups.value.reduce((sum, item) => sum + item.value, 0));
 
@@ -1265,8 +1293,8 @@ function createEnergyConsoleStore() {
     },
     {
       label: "已执行策略",
-      value: heroMetrics.value.appliedAdvice.length,
-      width: `${Math.min(heroMetrics.value.appliedAdvice.length * 32, 100)}%`,
+      value: heroMetrics.value.executedActionCount,
+      width: `${Math.min(heroMetrics.value.executedActionCount * 32, 100)}%`,
     },
   ]);
 
@@ -1368,7 +1396,7 @@ function createEnergyConsoleStore() {
   const ecoMetrics = computed(() => [
     { label: "年减碳量", value: `${heroMetrics.value.carbon.toFixed(1)} kg`, hint: "按节电量换算碳减排表现" },
     { label: "等效种树量", value: `${heroMetrics.value.trees.toFixed(1)} 棵`, hint: "用于校园绿色成果展示" },
-    { label: "节能执行次数", value: `${heroMetrics.value.appliedAdvice.length} 次`, hint: "按自治执行与护栏执行记录统计" },
+    { label: "节能执行次数", value: `${heroMetrics.value.executedActionCount} 次`, hint: "按自治执行与护栏执行记录统计" },
     { label: "高置信建议", value: `${heroMetrics.value.highConfidenceCount} 条`, hint: "可优先作为节能调整参考" },
   ]);
 
@@ -1402,7 +1430,16 @@ function createEnergyConsoleStore() {
     return agentJobs.value.find((job) => job.status !== "running") ?? agentJobs.value[0] ?? null;
   });
   const latestCompletedAgentRun = computed<AgentRunRecord | null>(() => {
-    return agentRuns.value[0] ?? null;
+    return (
+      agentRuns.value.find((run) => {
+        const selectedCount = Number(run.plan?.selectedCount || 0);
+        const simulatedSaving = Number(run.simulation?.totals?.savingKwh || 0);
+        const executedImpact = Number(run.execution?.totalImpact || 0);
+        return selectedCount > 0 || simulatedSaving > 0 || executedImpact > 0;
+      }) ??
+      agentRuns.value[0] ??
+      null
+    );
   });
   const agentTopActions = computed(() => latestAgentRun.value?.plan?.actions?.slice(0, 6) ?? []);
   const agentNeedsApproval = computed(() => latestAgentRun.value?.gate.mode === "manual");
@@ -1435,7 +1472,12 @@ function createEnergyConsoleStore() {
   const agentLatestJobStatusLabel = computed(() => {
     return formatAgentJobStatusLabel(latestAgentJob.value);
   });
-  const latestCompletedAgentJobStatusLabel = computed(() => formatAgentJobStatusLabel(latestCompletedAgentJob.value));
+  const latestCompletedAgentJobStatusLabel = computed(() => {
+    if (latestCompletedAgentJob.value) return formatAgentJobStatusLabel(latestCompletedAgentJob.value);
+    if (latestCompletedAgentRun.value?.status === "executed") return "已执行";
+    if (latestCompletedAgentRun.value?.status === "planned") return "已生成计划";
+    return "待命";
+  });
   const latestCompletedAgentExplanation = computed(() => {
     const latestFailedJob =
       latestAgentJob.value && latestAgentJob.value.status === "failed" ? latestAgentJob.value : null;

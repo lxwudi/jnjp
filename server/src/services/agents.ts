@@ -17,6 +17,7 @@ import {
   isWithinSchedule,
   variance,
 } from "../utils/energy.js";
+import { applyKnowledgeGrounding } from "./knowledge-base.js";
 
 function actionLabel(actionKey: AgentActionRecord["actionKey"]): string {
   if (actionKey === "close") return "关闭闲置接口";
@@ -74,27 +75,34 @@ export function evaluatePortAction(input: {
   manualThreshold: number;
   inSchedule: boolean;
   extraReasons?: string[];
+  goal?: string;
 }): AgentActionRecord {
-  const { port, actionKey, manualThreshold, inSchedule, extraReasons = [] } = input;
+  const { port, actionKey, manualThreshold, inSchedule, extraReasons = [], goal } = input;
   const riskScore = calcRiskScore(port, manualThreshold, inSchedule);
   const afterUsage = predictUsageAfter(port, actionKey);
   const impact = estimateSavingImpact(port.usage, afterUsage);
   const confidence = clamp(Math.round(94 - riskScore * 0.58 + impact * 0.9), 38, 96);
 
-  return {
-    id: createId(),
-    portId: port.id,
-    portName: port.name,
+  return applyKnowledgeGrounding({
+    port,
     actionKey,
-    actionLabel: actionLabel(actionKey),
-    beforeUsage: port.usage,
-    afterUsage,
-    impact,
-    confidence,
-    riskScore,
-    riskLevel: deriveRiskLevel(riskScore),
-    reasons: [`当前利用率 ${port.usage}%`, `连接数 ${port.connections}`, `历史波动 ${variance(port.history).toFixed(1)}`, ...extraReasons],
-  };
+    goal,
+    action: {
+      id: createId(),
+      portId: port.id,
+      portName: port.name,
+      actionKey,
+      actionLabel: actionLabel(actionKey),
+      beforeUsage: port.usage,
+      afterUsage,
+      impact,
+      confidence,
+      riskScore,
+      riskLevel: deriveRiskLevel(riskScore),
+      reasons: [`当前利用率 ${port.usage}%`, `连接数 ${port.connections}`, `历史波动 ${variance(port.history).toFixed(1)}`, ...extraReasons],
+      knowledgeRefs: [],
+    },
+  });
 }
 
 export function simulatePlannedActions(
@@ -140,7 +148,13 @@ export function simulatePlannedActions(
   };
 }
 
-function buildCandidates(interfaces: InterfaceRecord[], manualThreshold: number, snmpThreshold: number, inSchedule: boolean) {
+function buildCandidates(
+  interfaces: InterfaceRecord[],
+  manualThreshold: number,
+  snmpThreshold: number,
+  inSchedule: boolean,
+  goal?: string,
+) {
   const candidates = interfaces
     .map((port) => {
       if (port.applied) return null;
@@ -152,6 +166,7 @@ function buildCandidates(interfaces: InterfaceRecord[], manualThreshold: number,
         actionKey,
         manualThreshold,
         inSchedule,
+        goal,
       });
       const priority = Number((action.impact * (action.confidence / 100) - action.riskScore * 0.08).toFixed(2));
 
@@ -178,11 +193,18 @@ export function createAgentRun(input: {
   snmpConfig: SnmpConfig;
   operator?: string;
   actionLimit?: number;
+  goal?: string;
 }): AgentRunRecord {
-  const { interfaces, manualThreshold, idleDuration, snmpConfig, operator = "system", actionLimit = 8 } = input;
+  const { interfaces, manualThreshold, idleDuration, snmpConfig, operator = "system", actionLimit = 8, goal } = input;
   const inSchedule = isWithinSchedule(snmpConfig.schedule);
   const startedAtISO = new Date().toISOString();
-  const candidates = buildCandidates(interfaces, Number(manualThreshold), Number(snmpConfig.usageThreshold), inSchedule);
+  const candidates = buildCandidates(
+    interfaces,
+    Number(manualThreshold),
+    Number(snmpConfig.usageThreshold),
+    inSchedule,
+    goal,
+  );
   const actions = candidates.slice(0, actionLimit);
   const simulation = simulatePlannedActions(interfaces, actions);
   const runId = createId();
@@ -205,6 +227,7 @@ export function createAgentRun(input: {
       connectionThreshold: Number(snmpConfig.connectionThreshold),
       schedule: snmpConfig.schedule,
       actionLimit,
+      goal,
     },
     monitor: {
       interfaceCount: interfaces.length,

@@ -24,7 +24,8 @@ fs.mkdirSync(databaseDir, { recursive: true });
 
 const database = new DatabaseSync(databasePath);
 const LEGACY_DAYTIME_SCHEDULE = "07:30 - 22:00";
-const DEFAULT_NIGHT_SCHEDULE = "22:00 - 07:30";
+const LEGACY_NIGHT_SCHEDULE = "22:00 - 07:30";
+const DEFAULT_ALWAYS_ON_SCHEDULE = "00:00 - 23:59";
 
 database.exec(`
   PRAGMA journal_mode = WAL;
@@ -168,7 +169,10 @@ function normalizeSnmpConfig(config: SnmpConfig, fallback: SnmpConfig): SnmpConf
   return {
     ...fallback,
     ...config,
-    schedule: schedule === LEGACY_DAYTIME_SCHEDULE ? DEFAULT_NIGHT_SCHEDULE : schedule || fallback.schedule,
+    schedule:
+      schedule === LEGACY_DAYTIME_SCHEDULE || schedule === LEGACY_NIGHT_SCHEDULE
+        ? DEFAULT_ALWAYS_ON_SCHEDULE
+        : schedule || fallback.schedule,
   };
 }
 

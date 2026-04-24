@@ -40,7 +40,7 @@ statsRouter.get("/eco", (_req, res) => {
   sendOk(res, {
     yearCarbonKg: Number(metrics.carbon.toFixed(1)),
     equivalentTrees: Number(metrics.trees.toFixed(1)),
-    savingExecutions: metrics.appliedAdvice.length,
+    savingExecutions: metrics.executedActionCount,
     highConfidenceAdvice: metrics.highConfidenceCount,
     projectedSavingKwh: Number(metrics.projectedSaving.toFixed(1)),
   });
@@ -52,7 +52,7 @@ reportRouter.get("/summary", (_req, res) => {
     `当前接口总数：${state.interfaces.length}`,
     `闲置可优化端口：${metrics.idlePorts.length}`,
     `待执行建议：${metrics.pendingAdvice.length}`,
-    `已执行建议：${metrics.appliedAdvice.length}`,
+    `已执行动作：${metrics.executedActionCount}`,
     `年预计节电：${metrics.projectedSaving.toFixed(1)} kWh`,
     `年减碳量：${metrics.carbon.toFixed(1)} kg`,
     `护栏候选端口：${metrics.guardrailCandidates.length}`,

@@ -257,8 +257,8 @@ const subviewMeta = computed(() =>
                 <p class="capsule-label">最近结果</p>
                 <h4>最近一轮自治输出</h4>
               </div>
-              <span class="monitor-pill" :class="{ active: !!store.latestCompletedAgentJob }">
-                {{ store.latestCompletedAgentJob ? store.latestCompletedAgentJobStatusLabel : "待巡检" }}
+              <span class="monitor-pill" :class="{ active: !!store.latestCompletedAgentRun }">
+                {{ store.latestCompletedAgentRun ? store.latestCompletedAgentJobStatusLabel : "待巡检" }}
               </span>
             </div>
 
@@ -286,7 +286,7 @@ const subviewMeta = computed(() =>
               </div>
             </div>
             <div v-else class="empty-block">
-              {{ store.latestCompletedAgentJob ? store.latestCompletedAgentExplanation : "等待下一轮自治巡检后，这里会显示智能体策略估算结果。" }}
+              {{ store.latestCompletedAgentRun ? store.latestCompletedAgentExplanation : "等待下一轮自治巡检后，这里会显示智能体策略估算结果。" }}
             </div>
 
             <div v-if="store.latestCompletedAgentRun" class="agent-sim-grid">
@@ -350,7 +350,7 @@ const subviewMeta = computed(() =>
             <div class="security-strip">
               <div>
                 <span>解释输出</span>
-                <strong>{{ store.latestCompletedAgentJob ? "可解释" : "待生成" }}</strong>
+                <strong>{{ store.latestCompletedAgentRun ? "可解释" : "待生成" }}</strong>
               </div>
               <p>{{ store.latestCompletedAgentExplanation }}</p>
             </div>
@@ -395,7 +395,18 @@ const subviewMeta = computed(() =>
                   <td>{{ item.impact.toFixed(1) }}</td>
                   <td>{{ item.riskLevel }} ({{ item.riskScore }})</td>
                   <td>{{ item.confidence }}%</td>
-                  <td>{{ item.reasons.join(" / ") }}</td>
+                  <td>
+                    <div class="reason-stack">
+                      <p>{{ item.reasons.join(" / ") }}</p>
+                      <div v-if="item.knowledgeRefs.length" class="knowledge-hit-list">
+                        <article v-for="ref in item.knowledgeRefs.slice(0, 2)" :key="ref.docId" class="knowledge-hit-card">
+                          <strong>{{ ref.title }}</strong>
+                          <small>{{ ref.sourceName }} · {{ ref.category }} · {{ ref.publishedAt }}</small>
+                          <p>{{ ref.snippet }}</p>
+                        </article>
+                      </div>
+                    </div>
+                  </td>
                 </tr>
               </tbody>
               <tbody v-else>
@@ -490,8 +501,8 @@ const subviewMeta = computed(() =>
                   <input v-model.number="store.snmpForm.connectionThreshold" type="number" min="0" max="100" />
                 </label>
                 <label>
-                  <span>夜间执行窗口</span>
-                  <input v-model.trim="store.snmpForm.schedule" placeholder="22:00 - 07:30" />
+                  <span>执行时窗</span>
+                  <input v-model.trim="store.snmpForm.schedule" placeholder="00:00 - 23:59" />
                 </label>
                 <label>
                   <span>护栏动作</span>
@@ -503,7 +514,7 @@ const subviewMeta = computed(() =>
                 </label>
               </div>
 
-              <p class="field-note">自治自动执行只会在这里设置的夜间窗口内生效，推荐填写 22:00 - 07:30。</p>
+              <p class="field-note">当前默认设置为全天运行。若后续需要限制自动执行时段，可以在这里改成指定时间窗口。</p>
 
               <div class="action-cluster wide">
                 <button class="ghost-btn" type="button" @click="store.recommendThreshold">智能推荐阈值</button>

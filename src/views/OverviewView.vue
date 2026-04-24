@@ -197,8 +197,8 @@ const recentLogs = computed(() => store.auditLogs.slice(0, 5));
             <p class="capsule-label">最近执行</p>
             <h4>最近一轮自治结果</h4>
           </div>
-          <span class="monitor-pill" :class="{ active: !!store.latestCompletedAgentJob }">
-            {{ store.latestCompletedAgentJob ? store.latestCompletedAgentJobStatusLabel : "待巡检" }}
+          <span class="monitor-pill" :class="{ active: !!store.latestCompletedAgentRun }">
+            {{ store.latestCompletedAgentRun ? store.latestCompletedAgentJobStatusLabel : "待巡检" }}
           </span>
         </div>
 
@@ -223,7 +223,7 @@ const recentLogs = computed(() => store.auditLogs.slice(0, 5));
           </article>
         </div>
         <div v-else class="empty-block">
-          {{ store.latestCompletedAgentJob ? store.latestCompletedAgentExplanation : "等待下一轮自治巡检后，这里会显示最近的自动执行动作。" }}
+          {{ store.latestCompletedAgentRun ? store.latestCompletedAgentExplanation : "等待下一轮自治巡检后，这里会显示最近的自动执行动作。" }}
         </div>
       </article>
     </section>

@@ -455,3 +455,19 @@ export function listAgentJobs(limit = 20, eventsLimit = 6): AgentJobRecord[] {
 
   return rows.map((row) => mapJob(row, eventsLimit));
 }
+
+export function resetAgentRuntimeHistory(): void {
+  runtimeDb.exec("BEGIN IMMEDIATE");
+  try {
+    runtimeDb.prepare("DELETE FROM agent_job_events").run();
+    runtimeDb.prepare("DELETE FROM agent_jobs").run();
+    runtimeDb.exec("COMMIT");
+  } catch (error) {
+    try {
+      runtimeDb.exec("ROLLBACK");
+    } catch {
+      // Ignore rollback failures after a failed transaction.
+    }
+    throw error;
+  }
+}

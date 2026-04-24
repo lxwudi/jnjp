@@ -72,6 +72,17 @@ export interface AgentActionRecord {
   riskScore: number;
   riskLevel: "低" | "中" | "高";
   reasons: string[];
+  knowledgeRefs: AgentKnowledgeReference[];
+}
+
+export interface AgentKnowledgeReference {
+  docId: string;
+  title: string;
+  sourceName: string;
+  category: string;
+  publishedAt: string;
+  snippet: string;
+  relevanceScore: number;
 }
 
 export interface AgentEngineInfo {
@@ -246,6 +257,7 @@ export interface AgentJobRecord {
 export interface MetricsSummary {
   pendingAdvice: AdviceRecord[];
   appliedAdvice: AdviceRecord[];
+  executedActionCount: number;
   idlePorts: InterfaceRecord[];
   totalSaving: number;
   projectedSaving: number;
