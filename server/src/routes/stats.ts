@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../services/auth.js";
 import { compareWindows, getMetrics, summarizeNow } from "../services/console.js";
+import { buildInterfaceSavingCurve } from "../services/agents.js";
 import { state } from "../services/store.js";
 import { buildTrendSeries, clamp } from "../utils/energy.js";
 import { sendOk } from "../utils/http.js";
@@ -70,6 +71,32 @@ statsRouter.get("/trend", (_req, res) => {
   const trend = buildTrendSeries(state.executionRecords, metrics.projectedSaving);
   const donut = buildDonutData();
   sendOk(res, { trend, donut });
+});
+
+statsRouter.get("/interface-saving", (req, res) => {
+  const maxPointsRaw = Array.isArray(req.query.maxPoints) ? req.query.maxPoints[0] : req.query.maxPoints;
+  const maxPoints = clamp(Number(maxPointsRaw) || 10, 3, 20);
+  const curve = buildInterfaceSavingCurve({
+    interfaces: state.interfaces,
+    executionRecords: state.executionRecords,
+    manualThreshold: state.manualThreshold,
+    snmpConfig: state.snmpConfig,
+    goal: state.autonomyConfig.goal,
+    maxPoints,
+  });
+  const last = curve[curve.length - 1];
+  const nonBaseline = curve.filter((item) => item.interfaceCount > 0);
+  const totalMarginal = nonBaseline.reduce((sum, item) => sum + item.marginalSavingKwh, 0);
+
+  sendOk(res, {
+    curve,
+    summary: {
+      interfaceCount: last?.interfaceCount ?? 0,
+      projectedSavingKwh: last?.cumulativeSavingKwh ?? 0,
+      averageMarginalSavingKwh: nonBaseline.length ? Number((totalMarginal / nonBaseline.length).toFixed(1)) : 0,
+      autoEligibleCount: last?.autoEligibleCount ?? 0,
+    },
+  });
 });
 
 statsRouter.get("/compare", (req, res) => {

@@ -7,8 +7,10 @@ const store = useEnergyConsole();
 
 const trendChartRef = ref<HTMLElement | null>(null);
 const donutChartRef = ref<HTMLElement | null>(null);
+const interfaceSavingChartRef = ref<HTMLElement | null>(null);
 let trendChart: echarts.ECharts | null = null;
 let donutChart: echarts.ECharts | null = null;
+let interfaceSavingChart: echarts.ECharts | null = null;
 
 const trendSignature = computed(() => {
   const labels = store.trendSvg.labels.join("|");
@@ -17,6 +19,34 @@ const trendSignature = computed(() => {
 });
 
 const donutSignature = computed(() => store.donutGroups.map((item) => `${item.label}:${item.value}`).join("|"));
+const interfaceSavingSignature = computed(() =>
+  store.interfaceSavingCurve
+    .map((item) => `${item.interfaceCount}:${item.cumulativeSavingKwh}:${item.marginalSavingKwh}:${item.averageRiskScore}`)
+    .join("|"),
+);
+
+const interfaceSavingCards = computed(() => [
+  {
+    label: "轮次",
+    value: `${store.interfaceSavingSummary.interfaceCount}`,
+    hint: "按治理接口数量递增",
+  },
+  {
+    label: "累计节电",
+    value: `${store.interfaceSavingSummary.projectedSavingKwh.toFixed(1)} kWh`,
+    hint: "当前接口池模拟上限",
+  },
+  {
+    label: "单口均值",
+    value: `${store.interfaceSavingSummary.averageMarginalSavingKwh.toFixed(1)} kWh`,
+    hint: "每新增一个治理接口的平均增量",
+  },
+  {
+    label: "自动放行",
+    value: `${store.interfaceSavingSummary.autoEligibleCount}`,
+    hint: "满足低风险自治门槛的接口",
+  },
+]);
 
 const recentTrendContext = computed(() => {
   const labels = store.trendSvg.labels;
@@ -269,15 +299,111 @@ function renderDonutChart() {
   });
 }
 
+function renderInterfaceSavingChart() {
+  if (!interfaceSavingChartRef.value) return;
+  if (!interfaceSavingChart) {
+    interfaceSavingChart = echarts.init(interfaceSavingChartRef.value);
+  }
+
+  const curve = store.interfaceSavingCurve.length
+    ? store.interfaceSavingCurve
+    : [{ interfaceCount: 0, label: "0", cumulativeSavingKwh: 0, marginalSavingKwh: 0, averageRiskScore: 0, autoEligibleCount: 0, selectedPorts: [] }];
+  const labels = curve.map((item) => item.label);
+
+  interfaceSavingChart.setOption({
+    backgroundColor: "transparent",
+    tooltip: {
+      trigger: "axis",
+      backgroundColor: "rgba(19, 46, 55, 0.92)",
+      borderColor: "rgba(16, 164, 183, 0.32)",
+      textStyle: { color: "#eaf5f3" },
+      formatter(params: unknown) {
+        const items = Array.isArray(params) ? params : [];
+        const index = Number((items[0] as { dataIndex?: number } | undefined)?.dataIndex ?? 0);
+        const point = curve[index];
+        const lines = items.map((item) => {
+          const next = item as { marker?: string; seriesName?: string; value?: number };
+          return `${next.marker || ""}${next.seriesName}: ${Number(next.value || 0).toFixed(1)} kWh`;
+        });
+        const ports = point?.selectedPorts?.length ? `纳入接口：${point.selectedPorts.slice(0, 4).join("、")}` : "纳入接口：--";
+        return [`治理接口数：${point?.interfaceCount ?? 0}`, ...lines, ports].join("<br/>");
+      },
+    },
+    grid: { left: 86, right: 42, top: 62, bottom: 76 },
+    legend: {
+      show: true,
+      right: 14,
+      top: 12,
+      textStyle: { color: "#4f6973", fontSize: 12 },
+      itemWidth: 14,
+      itemHeight: 10,
+    },
+    xAxis: {
+      type: "category",
+      name: "治理接口数量（个）",
+      nameLocation: "middle",
+      nameGap: 42,
+      nameTextStyle: { color: "#17313a", fontSize: 16, fontWeight: 700 },
+      data: labels,
+      axisLine: { lineStyle: { color: "rgba(23, 49, 58, 0.42)", width: 1.4 } },
+      axisLabel: { color: "#17313a", fontSize: 15, fontWeight: 700, margin: 14 },
+      axisTick: { show: false },
+    },
+    yAxis: {
+      type: "value",
+      name: "节电量（kWh）",
+      nameLocation: "middle",
+      nameGap: 56,
+      nameRotate: 90,
+      nameTextStyle: { color: "#17313a", fontSize: 16, fontWeight: 700 },
+      splitLine: { lineStyle: { color: "rgba(23, 49, 58, 0.14)" } },
+      axisLabel: { color: "#17313a", formatter: "{value}", fontSize: 15, fontWeight: 700, margin: 14 },
+      axisLine: { show: false },
+      axisTick: { show: false },
+    },
+    series: [
+      {
+        name: "累计节电",
+        type: "line",
+        data: curve.map((item) => item.cumulativeSavingKwh),
+        smooth: true,
+        showSymbol: true,
+        symbolSize: 7,
+        lineStyle: { width: 3, color: "#129db0" },
+        itemStyle: { color: "#129db0", borderColor: "#f7fbf8", borderWidth: 1.5 },
+        areaStyle: {
+          opacity: 0.18,
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: "#129db0" },
+            { offset: 1, color: "rgba(255,255,255,0)" },
+          ]),
+        },
+      },
+      {
+        name: "新增节电",
+        type: "line",
+        data: curve.map((item) => item.marginalSavingKwh),
+        smooth: true,
+        showSymbol: true,
+        symbolSize: 7,
+        lineStyle: { width: 3, color: "#c5ff48" },
+        itemStyle: { color: "#9fdc32", borderColor: "#f7fbf8", borderWidth: 1.5 },
+      },
+    ],
+  });
+}
+
 function handleResize() {
   trendChart?.resize();
   donutChart?.resize();
+  interfaceSavingChart?.resize();
 }
 
 onMounted(() => {
   window.addEventListener("resize", handleResize);
   renderTrendChart();
   renderDonutChart();
+  renderInterfaceSavingChart();
 });
 
 watch(trendSignature, () => {
@@ -288,12 +414,18 @@ watch(donutSignature, () => {
   renderDonutChart();
 }, { immediate: true });
 
+watch(interfaceSavingSignature, () => {
+  renderInterfaceSavingChart();
+}, { immediate: true });
+
 onBeforeUnmount(() => {
   window.removeEventListener("resize", handleResize);
   trendChart?.dispose();
   donutChart?.dispose();
+  interfaceSavingChart?.dispose();
   trendChart = null;
   donutChart = null;
+  interfaceSavingChart = null;
 });
 </script>
 
@@ -347,6 +479,29 @@ onBeforeUnmount(() => {
                   </div>
                 </article>
               </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel module-panel interface-saving-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="capsule-label">效果曲线</p>
+              <h4>接口数量与节电效果</h4>
+            </div>
+          </div>
+
+          <div class="interface-effect-grid">
+            <div class="chart-shell">
+              <div ref="interfaceSavingChartRef" class="echart-canvas" role="img" aria-label="接口数量与节电效果折线图"></div>
+            </div>
+
+            <div class="interface-effect-summary">
+              <article v-for="item in interfaceSavingCards" :key="item.label" class="display-readout">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
+                <p>{{ item.hint }}</p>
+              </article>
             </div>
           </div>
         </article>

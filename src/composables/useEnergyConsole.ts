@@ -85,6 +85,26 @@ interface TrendPayload {
   }>;
 }
 
+interface InterfaceSavingCurvePoint {
+  interfaceCount: number;
+  label: string;
+  cumulativeSavingKwh: number;
+  marginalSavingKwh: number;
+  averageRiskScore: number;
+  autoEligibleCount: number;
+  selectedPorts: string[];
+}
+
+interface InterfaceSavingPayload {
+  curve: InterfaceSavingCurvePoint[];
+  summary: {
+    interfaceCount: number;
+    projectedSavingKwh: number;
+    averageMarginalSavingKwh: number;
+    autoEligibleCount: number;
+  };
+}
+
 interface ImportCsvPayload {
   insertedCount: number;
   errorCount: number;
@@ -261,6 +281,13 @@ function createEnergyConsoleStore() {
     defaultTrendSeries.map((item) => ({ label: item.label, color: item.color, values: [...item.values] })),
   );
   const trendDonutData = ref<Array<{ label: string; value: number; color: string }>>([]);
+  const interfaceSavingCurve = ref<InterfaceSavingCurvePoint[]>([]);
+  const interfaceSavingSummary = ref<InterfaceSavingPayload["summary"]>({
+    interfaceCount: 0,
+    projectedSavingKwh: 0,
+    averageMarginalSavingKwh: 0,
+    autoEligibleCount: 0,
+  });
   const agentRuns = ref<AgentRunRecord[]>([]);
   const agentSummary = ref<AgentRunSummary>({ planned: 0, executed: 0, totalSaving: 0 });
   const agentActionLimit = ref(8);
@@ -504,6 +531,27 @@ function createEnergyConsoleStore() {
       : [];
   }
 
+  async function loadInterfaceSavingStats() {
+    const payload = await requestApi<InterfaceSavingPayload>("/api/stats/interface-saving?maxPoints=12");
+    interfaceSavingCurve.value = Array.isArray(payload.curve)
+      ? payload.curve.map((item) => ({
+          interfaceCount: Number(item.interfaceCount) || 0,
+          label: String(item.label || item.interfaceCount || "0"),
+          cumulativeSavingKwh: Number(item.cumulativeSavingKwh) || 0,
+          marginalSavingKwh: Number(item.marginalSavingKwh) || 0,
+          averageRiskScore: Number(item.averageRiskScore) || 0,
+          autoEligibleCount: Number(item.autoEligibleCount) || 0,
+          selectedPorts: Array.isArray(item.selectedPorts) ? item.selectedPorts.map((port) => String(port)) : [],
+        }))
+      : [];
+    interfaceSavingSummary.value = {
+      interfaceCount: Number(payload.summary?.interfaceCount) || 0,
+      projectedSavingKwh: Number(payload.summary?.projectedSavingKwh) || 0,
+      averageMarginalSavingKwh: Number(payload.summary?.averageMarginalSavingKwh) || 0,
+      autoEligibleCount: Number(payload.summary?.autoEligibleCount) || 0,
+    };
+  }
+
   async function loadAgentRuns(limit = 20) {
     const payload = await requestApi<AgentRunsPayload>(`/api/agents/runs?limit=${limit}`);
     agentRuns.value = Array.isArray(payload.items) ? payload.items : [];
@@ -563,6 +611,7 @@ function createEnergyConsoleStore() {
       loadOverviewStats(),
       loadGuardrailConfig(),
       loadTrendStats(),
+      loadInterfaceSavingStats(),
       loadAgentStatus(),
       loadAgentProviderConfig(),
       loadAgentAutonomy(),
@@ -583,6 +632,7 @@ function createEnergyConsoleStore() {
         loadOverviewStats(),
         loadGuardrailConfig(),
         loadTrendStats(),
+        loadInterfaceSavingStats(),
         loadAgentStatus(),
         loadAgentProviderConfig(),
         loadAgentAutonomy(),
@@ -794,7 +844,7 @@ function createEnergyConsoleStore() {
       guardrailsEnabled.value = Boolean(payload.guardrailsEnabled);
       syncSnmpForm(payload.snmpConfig);
 
-      await Promise.all([loadAuditLogs(), loadTrendStats()]);
+      await Promise.all([loadAuditLogs(), loadTrendStats(), loadInterfaceSavingStats()]);
       formError.value = false;
       formFeedback.value = `已生成 ${advice.value.length} 条规则建议，可逐条确认或批量应用。`;
     } catch (error) {
@@ -842,7 +892,7 @@ function createEnergyConsoleStore() {
   async function applyAdvice(id: string) {
     try {
       await requestApi(`/api/advice/${encodeURIComponent(id)}/apply`, { method: "POST" });
-      await Promise.all([loadInterfaces(), loadAdvice(), loadAuditLogs(), loadOverviewStats(), loadTrendStats()]);
+      await Promise.all([loadInterfaces(), loadAdvice(), loadAuditLogs(), loadOverviewStats(), loadTrendStats(), loadInterfaceSavingStats()]);
       formError.value = false;
       formFeedback.value = "建议已执行，结果已更新。";
     } catch (error) {
@@ -854,7 +904,7 @@ function createEnergyConsoleStore() {
   async function applyAllAdvice() {
     try {
       await requestApi("/api/advice/apply-all", { method: "POST" });
-      await Promise.all([loadInterfaces(), loadAdvice(), loadAuditLogs(), loadOverviewStats(), loadTrendStats()]);
+      await Promise.all([loadInterfaces(), loadAdvice(), loadAuditLogs(), loadOverviewStats(), loadTrendStats(), loadInterfaceSavingStats()]);
       formError.value = false;
       formFeedback.value = "已执行全部建议，结果已更新。";
     } catch (error) {
@@ -931,7 +981,7 @@ function createEnergyConsoleStore() {
         guardrailFeedback.value = "智能体护栏已停用，当前仅保留配置供智能体参考。";
       }
 
-      await Promise.all([loadGuardrailConfig(), loadOverviewStats(), loadAuditLogs(), loadTrendStats(), loadAgentAutonomy()]);
+      await Promise.all([loadGuardrailConfig(), loadOverviewStats(), loadAuditLogs(), loadTrendStats(), loadInterfaceSavingStats(), loadAgentAutonomy()]);
     } catch (error) {
       guardrailFeedback.value = toMessage(error);
     }
@@ -940,7 +990,7 @@ function createEnergyConsoleStore() {
   async function clearInterfaces() {
     try {
       await requestApi("/api/interfaces", { method: "DELETE" });
-      await Promise.all([loadInterfaces(), loadAdvice(), loadAuditLogs(), loadOverviewStats(), loadTrendStats()]);
+      await Promise.all([loadInterfaces(), loadAdvice(), loadAuditLogs(), loadOverviewStats(), loadTrendStats(), loadInterfaceSavingStats()]);
       formError.value = false;
       formFeedback.value = "接口池已清空。";
     } catch (error) {
@@ -978,7 +1028,7 @@ function createEnergyConsoleStore() {
 
         syncPlannedAgentPayload(payload);
         applyPlannedAgentFeedback(payload.run);
-        await Promise.all([loadAuditLogs(), loadTrendStats(), loadAgentJobs()]);
+        await Promise.all([loadAuditLogs(), loadTrendStats(), loadInterfaceSavingStats(), loadAgentJobs()]);
         return;
       }
 
@@ -1049,7 +1099,7 @@ function createEnergyConsoleStore() {
         }
       }
 
-      await Promise.all([loadAuditLogs(), loadTrendStats(), loadAgentJobs()]);
+      await Promise.all([loadAuditLogs(), loadTrendStats(), loadInterfaceSavingStats(), loadAgentJobs()]);
     } catch (error) {
       agentFeedback.value = toMessage(error);
     } finally {
@@ -1093,6 +1143,7 @@ function createEnergyConsoleStore() {
         loadAuditLogs(),
         loadOverviewStats(),
         loadTrendStats(),
+        loadInterfaceSavingStats(),
         loadAgentStatus(),
         loadAgentJobs(),
       ]);
@@ -1593,6 +1644,8 @@ function createEnergyConsoleStore() {
     idleDuration,
     importExampleCsv,
     importSampleSet,
+    interfaceSavingCurve,
+    interfaceSavingSummary,
     interfaces,
     latestAgentJob,
     latestCompletedAgentExplanation,

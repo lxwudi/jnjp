@@ -4,6 +4,7 @@ import type {
   AgentReviewRecord,
   AgentRunRecord,
   AgentRunSummary,
+  ExecutionRecord,
   InterfaceRecord,
   SnmpConfig,
 } from "../types/domain.js";
@@ -249,6 +250,97 @@ export function createAgentRun(input: {
     explanation: explainRun(simulation, inSchedule),
     status: "planned",
   };
+}
+
+export interface InterfaceSavingCurvePoint {
+  interfaceCount: number;
+  label: string;
+  cumulativeSavingKwh: number;
+  marginalSavingKwh: number;
+  averageRiskScore: number;
+  autoEligibleCount: number;
+  selectedPorts: string[];
+}
+
+export function buildInterfaceSavingCurve(input: {
+  interfaces: InterfaceRecord[];
+  executionRecords?: ExecutionRecord[];
+  manualThreshold: number;
+  snmpConfig: SnmpConfig;
+  goal?: string;
+  maxPoints?: number;
+}): InterfaceSavingCurvePoint[] {
+  const { interfaces, executionRecords = [], manualThreshold, snmpConfig, goal, maxPoints = 10 } = input;
+  const inSchedule = isWithinSchedule(snmpConfig.schedule);
+  const candidates = buildCandidates(
+    interfaces,
+    Number(manualThreshold),
+    Number(snmpConfig.usageThreshold),
+    inSchedule,
+    goal,
+  ).slice(0, Math.max(1, maxPoints));
+
+  const points: InterfaceSavingCurvePoint[] = [
+    {
+      interfaceCount: 0,
+      label: "0",
+      cumulativeSavingKwh: 0,
+      marginalSavingKwh: 0,
+      averageRiskScore: 0,
+      autoEligibleCount: 0,
+      selectedPorts: [],
+    },
+  ];
+
+  let previousSaving = 0;
+  let realizedCount = 0;
+  const realizedRecords = [...executionRecords]
+    .filter((record) => Number(record.impact) > 0)
+    .sort((left, right) => new Date(left.timeISO).valueOf() - new Date(right.timeISO).valueOf())
+    .slice(-maxPoints);
+
+  for (const record of realizedRecords) {
+    if (points.length > maxPoints) break;
+    realizedCount += 1;
+    const marginalSavingKwh = Number(record.impact.toFixed(1));
+    const cumulativeSavingKwh = Number((previousSaving + marginalSavingKwh).toFixed(1));
+
+    points.push({
+      interfaceCount: realizedCount,
+      label: String(realizedCount),
+      cumulativeSavingKwh,
+      marginalSavingKwh,
+      averageRiskScore: 0,
+      autoEligibleCount: realizedCount,
+      selectedPorts: [record.target],
+    });
+    previousSaving = cumulativeSavingKwh;
+  }
+
+  const remainingSlots = Math.max(maxPoints - realizedCount, 0);
+  const realizedSaving = previousSaving;
+  let previousCurveSaving = previousSaving;
+  for (let index = 1; index <= Math.min(candidates.length, remainingSlots); index += 1) {
+    const selected = candidates.slice(0, index);
+    const simulation = simulatePlannedActions(interfaces, selected);
+    const cumulativeSavingKwh = Number((realizedSaving + simulation.totals.savingKwh).toFixed(1));
+    const marginalSavingKwh = Number(Math.max(cumulativeSavingKwh - previousCurveSaving, 0).toFixed(1));
+    const autoEligibleCount = selected.filter((action) => action.riskScore <= 44 && action.confidence >= 60).length;
+    const interfaceCount = realizedCount + index;
+
+    points.push({
+      interfaceCount,
+      label: String(interfaceCount),
+      cumulativeSavingKwh,
+      marginalSavingKwh,
+      averageRiskScore: Number(simulation.risk.score.toFixed(1)),
+      autoEligibleCount: realizedCount + autoEligibleCount,
+      selectedPorts: selected.map((action) => action.portName),
+    });
+    previousCurveSaving = cumulativeSavingKwh;
+  }
+
+  return points;
 }
 
 export function createAgentRunFromPlannedActions(input: {

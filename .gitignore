@@ -14,3 +14,5 @@ server/data/*.db-wal
 
 *.log
 .DS_Store
+__pycache__/
+*.pyc

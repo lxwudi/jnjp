@@ -344,6 +344,41 @@ const subviewMeta = computed(() =>
               </article>
             </div>
 
+            <div class="security-strip">
+              <div>
+                <span>解释输出</span>
+                <strong>{{ store.latestCompletedAgentRun ? "可解释" : "待生成" }}</strong>
+              </div>
+              <p>{{ store.latestCompletedAgentExplanation }}</p>
+            </div>
+
+            <div v-if="store.latestCompletedAgentReviewSummary" class="impact-footer agent-review-footer">
+              <span>风险评审</span>
+              <strong>{{ store.latestCompletedAgentReviewSummary }}</strong>
+              <p>{{ store.latestCompletedAgentReviewNotes.join(" / ") }}</p>
+            </div>
+
+            <div
+              v-if="
+                store.latestCompletedAgentRun &&
+                store.latestCompletedAgentRun.status !== 'executed' &&
+                store.latestCompletedAgentRun.plan.selectedCount > 0
+              "
+              class="action-cluster wide agent-manual-actions"
+            >
+              <button
+                class="primary-btn slim"
+                type="button"
+                :disabled="store.agentBusy"
+                @click="store.executeAgentPlan(store.latestCompletedAgentRun.id, store.latestCompletedAgentNeedsApproval)"
+              >
+                {{ store.agentBusy ? "执行中" : store.latestCompletedAgentNeedsApproval ? "人工确认执行" : "执行策略" }}
+              </button>
+              <span class="tag-pill">
+                {{ store.latestCompletedAgentNeedsApproval ? "需人工确认" : "可执行" }}
+              </span>
+            </div>
+
             <div class="agent-cumulative-block">
               <div class="panel-heading agent-cumulative-heading">
                 <div>
@@ -369,20 +404,6 @@ const subviewMeta = computed(() =>
                   <strong>{{ cumulativeAgentTotals.trees.toFixed(1) }} 棵</strong>
                 </article>
               </div>
-            </div>
-
-            <div class="security-strip">
-              <div>
-                <span>解释输出</span>
-                <strong>{{ store.latestCompletedAgentRun ? "可解释" : "待生成" }}</strong>
-              </div>
-              <p>{{ store.latestCompletedAgentExplanation }}</p>
-            </div>
-
-            <div v-if="store.latestCompletedAgentReviewSummary" class="impact-footer agent-review-footer">
-              <span>风险评审</span>
-              <strong>{{ store.latestCompletedAgentReviewSummary }}</strong>
-              <p>{{ store.latestCompletedAgentReviewNotes.join(" / ") }}</p>
             </div>
           </article>
         </div>

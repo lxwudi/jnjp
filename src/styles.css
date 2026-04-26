@@ -25,10 +25,10 @@
   --radius-xl: 30px;
   --radius-lg: 22px;
   --radius-md: 16px;
-  --headline: "DIN Condensed", "Avenir Next Condensed", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --headline-cn: "PingFang SC", "Hiragino Sans GB", "Source Han Sans SC", "Microsoft YaHei", sans-serif;
-  --body: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --mono: "SFMono-Regular", "Roboto Mono", "Menlo", "Monaco", monospace;
+  --headline: "Songti SC", "STSong", "SimSun", serif;
+  --headline-cn: "Songti SC", "STSong", "SimSun", serif;
+  --body: "Songti SC", "STSong", "SimSun", serif;
+  --mono: "Songti SC", "STSong", "SimSun", serif;
 }
 
 * {
@@ -1054,6 +1054,7 @@ textarea {
   border: 1px solid rgba(23, 49, 58, 0.12);
 }
 
+.primary-btn:disabled,
 .ghost-btn:disabled {
   cursor: not-allowed;
   opacity: 0.45;
@@ -1932,6 +1933,7 @@ tbody tr:hover {
   grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
   grid-template-areas:
     "trend trend"
+    "curve curve"
     "eco donut";
   align-items: start;
 }
@@ -2154,6 +2156,11 @@ tbody tr:hover {
   margin-top: 14px;
 }
 
+.agent-manual-actions {
+  align-items: center;
+  margin-top: 4px;
+}
+
 .agent-cumulative-heading {
   margin-bottom: 12px;
 }
@@ -2166,6 +2173,34 @@ tbody tr:hover {
 
 .trend-panel {
   grid-area: trend;
+}
+
+.interface-saving-panel {
+  grid-area: curve;
+}
+
+.interface-effect-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.interface-effect-summary {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.interface-effect-summary .display-readout {
+  min-height: 0;
+}
+
+.interface-effect-summary .display-readout p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .donut-panel {
@@ -2490,6 +2525,14 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 
+  .interface-effect-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .interface-effect-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .insight-kpi-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2545,6 +2588,7 @@ tbody tr:hover {
   .insight-layout {
     grid-template-areas:
       "trend"
+      "curve"
       "donut"
       "eco";
   }
@@ -2586,6 +2630,7 @@ tbody tr:hover {
   .hero-card-row,
   .metric-grid,
   .form-grid,
+  .interface-effect-summary,
   .sector-strip,
   .port-board {
     grid-template-columns: 1fr;

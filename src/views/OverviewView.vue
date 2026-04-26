@@ -5,16 +5,39 @@ import { useEnergyConsole } from "../composables/useEnergyConsole";
 
 const store = useEnergyConsole();
 
+const pendingAgentRun = computed(() => {
+  const run = store.latestCompletedAgentRun;
+  if (!run || run.status === "executed" || run.plan.selectedCount <= 0) return null;
+  return run;
+});
+
+const overviewStatusLabel = computed(() => {
+  if (pendingAgentRun.value) {
+    return store.latestCompletedAgentNeedsApproval ? "计划待确认" : "计划待执行";
+  }
+  return store.agentAutonomyStatusLabel;
+});
+
+const overviewOutcomeLabel = computed(() => {
+  if (pendingAgentRun.value) {
+    return store.latestCompletedAgentNeedsApproval ? "计划待人工确认" : "计划待执行";
+  }
+  if (store.latestCompletedAgentRun?.status === "executed") {
+    return "最近一轮已执行";
+  }
+  return store.agentAutonomyOutcomeLabel;
+});
+
 const summaryCards = computed(() => [
   {
-    label: "待优化端口",
-    value: `${store.heroMetrics.idlePorts.length}`,
-    hint: "当前满足闲置判定、值得优先处理的接口数量",
+    label: pendingAgentRun.value ? "待处理端口" : "待优化端口",
+    value: `${pendingAgentRun.value?.plan.selectedCount ?? store.heroMetrics.idlePorts.length}`,
+    hint: pendingAgentRun.value ? "最近计划中等待确认或执行的接口数量" : "当前满足闲置判定、值得优先处理的接口数量",
   },
   {
     label: "自治候选动作",
-    value: `${store.heroMetrics.guardrailCandidates.length}`,
-    hint: "在当前护栏边界内，允许纳入自治规划的接口数量",
+    value: `${pendingAgentRun.value?.plan.selectedCount ?? store.heroMetrics.guardrailCandidates.length}`,
+    hint: pendingAgentRun.value ? "最近一轮智能体生成、等待处理的动作数量" : "在当前护栏边界内，允许纳入自治规划的接口数量",
   },
   {
     label: "累计节电",
@@ -23,15 +46,17 @@ const summaryCards = computed(() => [
   },
   {
     label: "最近结论",
-    value: store.agentAutonomyOutcomeLabel,
-    hint: `最近作业状态：${store.agentLatestJobStatusLabel}`,
+    value: overviewOutcomeLabel.value,
+    hint: pendingAgentRun.value
+      ? `风险等级：${pendingAgentRun.value.simulation.risk.level}，评分 ${pendingAgentRun.value.simulation.risk.score}`
+      : `最近作业状态：${store.latestCompletedAgentRun ? store.latestCompletedAgentJobStatusLabel : store.agentLatestJobStatusLabel}`,
   },
 ]);
 
 const statusCards = computed(() => [
   {
     label: "自治状态",
-    value: store.agentAutonomyStatusLabel,
+    value: overviewStatusLabel.value,
     hint: store.agentAutonomyRuntime.lastMessage || "自治智能体正在等待下一轮巡检。",
   },
   {
@@ -112,7 +137,7 @@ const latestRunMetrics = computed(() => [
             <h4>自治节能运行态势</h4>
           </div>
           <span class="monitor-pill" :class="{ active: store.agentAutonomyEnabled && store.guardrailsEnabled }">
-            {{ store.agentAutonomyStatusLabel }}
+            {{ overviewStatusLabel }}
           </span>
         </div>
 
