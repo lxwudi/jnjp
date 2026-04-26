@@ -100,8 +100,6 @@ const latestRunMetrics = computed(() => [
     value: store.latestCompletedAgentRun ? (store.latestCompletedAgentRun.gate.mode === "manual" ? "风险过滤" : "自治自动") : "--",
   },
 ]);
-
-const recentLogs = computed(() => store.auditLogs.slice(0, 5));
 </script>
 
 <template>
@@ -228,26 +226,5 @@ const recentLogs = computed(() => store.auditLogs.slice(0, 5));
       </article>
     </section>
 
-    <article class="panel module-panel">
-      <div class="panel-heading">
-        <div>
-          <p class="capsule-label">最近日志</p>
-          <h4>系统最近发生了什么</h4>
-        </div>
-        <a class="ghost-btn" href="#audit">进入审计页</a>
-      </div>
-
-      <div v-if="recentLogs.length" class="overview-log-list scroll-region scroll-region--md">
-        <article v-for="log in recentLogs" :key="log.id" class="overview-log-item">
-          <div class="overview-log-main">
-            <span>{{ log.module }}</span>
-            <strong>{{ log.action }} · {{ log.target }}</strong>
-            <p>{{ log.result }}</p>
-          </div>
-          <time>{{ log.time }}</time>
-        </article>
-      </div>
-      <div v-else class="empty-block">暂时还没有可展示的日志记录。</div>
-    </article>
   </div>
 </template>

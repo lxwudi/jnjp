@@ -8,6 +8,56 @@ import { sendOk } from "../utils/http.js";
 export const statsRouter = Router();
 export const reportRouter = Router();
 
+type ActionBucketKey = "close" | "reduce" | "hybrid";
+
+const donutMeta: Record<ActionBucketKey, { label: string; color: string }> = {
+  close: { label: "关闭接口", color: "#c5ff48" },
+  reduce: { label: "低功耗", color: "#00c2ff" },
+  hybrid: { label: "模式调整", color: "#ff7c45" },
+};
+
+function classifyActionKey(input: string): ActionBucketKey | null {
+  const text = String(input || "").trim();
+  if (!text) return null;
+  if (text.includes("关闭")) return "close";
+  if (text.includes("低功耗")) return "reduce";
+  if (text.includes("模式") || text.includes("调整")) return "hybrid";
+  return null;
+}
+
+function buildDonutData() {
+  const counters: Record<ActionBucketKey, number> = {
+    close: 0,
+    reduce: 0,
+    hybrid: 0,
+  };
+
+  const addCounter = (key: ActionBucketKey | null) => {
+    if (!key) return;
+    counters[key] += 1;
+  };
+
+  if (state.executionRecords.length > 0) {
+    state.executionRecords.forEach((item) => addCounter(classifyActionKey(item.action)));
+  } else if (state.agentRuns.length > 0) {
+    state.agentRuns.forEach((run) => {
+      run.plan.actions.forEach((action) => {
+        if (action.actionKey === "close") addCounter("close");
+        else if (action.actionKey === "reduce") addCounter("reduce");
+        else addCounter("hybrid");
+      });
+    });
+  } else {
+    state.advice.forEach((item) => addCounter(classifyActionKey(item.action)));
+  }
+
+  return (Object.keys(donutMeta) as ActionBucketKey[]).map((key) => ({
+    label: donutMeta[key].label,
+    value: counters[key],
+    color: donutMeta[key].color,
+  }));
+}
+
 statsRouter.use(requireAuth());
 reportRouter.use(requireAuth());
 
@@ -18,11 +68,7 @@ statsRouter.get("/overview", (_req, res) => {
 statsRouter.get("/trend", (_req, res) => {
   const metrics = getMetrics();
   const trend = buildTrendSeries(state.executionRecords, metrics.projectedSaving);
-  const donut = [
-    { label: "关闭接口", value: state.advice.filter((item) => item.action.includes("关闭")).length, color: "#c5ff48" },
-    { label: "低功耗", value: state.advice.filter((item) => item.action.includes("低功耗")).length, color: "#00c2ff" },
-    { label: "模式调整", value: state.advice.filter((item) => item.action.includes("工作模式")).length, color: "#ff7c45" },
-  ];
+  const donut = buildDonutData();
   sendOk(res, { trend, donut });
 });
 

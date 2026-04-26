@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { fileURLToPath } from "node:url";
 import type {
   AgentEngineInfo,
   AgentJobEventRecord,
@@ -15,7 +16,7 @@ import { createId, formatDate } from "../utils/energy.js";
 type SqlRow = Record<string, unknown>;
 
 const runtimeDbFile = new URL("../../data/agent-runtime.db", import.meta.url);
-const runtimeDbPath = runtimeDbFile.pathname;
+const runtimeDbPath = fileURLToPath(runtimeDbFile);
 const runtimeDbDir = path.dirname(runtimeDbPath);
 
 fs.mkdirSync(runtimeDbDir, { recursive: true });

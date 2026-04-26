@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { AgentActionRecord, AgentKnowledgeReference, InterfaceRecord, StrategyKey } from "../types/domain.js";
 
 interface KnowledgeDocument {
@@ -22,7 +23,7 @@ type SearchInput = {
 };
 
 const knowledgeBaseDir = new URL("../../knowledge-base", import.meta.url);
-const normalizedKnowledgeBaseDir = path.normalize(knowledgeBaseDir.pathname);
+const normalizedKnowledgeBaseDir = path.normalize(fileURLToPath(knowledgeBaseDir));
 
 function parseFrontMatter(raw: string): { meta: Record<string, string>; body: string } {
   const trimmed = raw.trim();

@@ -1,6 +1,8 @@
 import { computed, proxyRefs, reactive, ref } from "vue";
 import { parseHistory } from "../lib/csv";
 import {
+  CARBON_FACTOR,
+  TREE_FACTOR,
   computeRecommendedThreshold,
   exampleCsv,
   formatDate,
@@ -76,6 +78,11 @@ interface TrendPayload {
     saving: number[];
     carbon: number[];
   };
+  donut?: Array<{
+    label: string;
+    value: number;
+    color: string;
+  }>;
 }
 
 interface ImportCsvPayload {
@@ -253,6 +260,7 @@ function createEnergyConsoleStore() {
   const trendSeriesData = ref<TrendSeriesItem[]>(
     defaultTrendSeries.map((item) => ({ label: item.label, color: item.color, values: [...item.values] })),
   );
+  const trendDonutData = ref<Array<{ label: string; value: number; color: string }>>([]);
   const agentRuns = ref<AgentRunRecord[]>([]);
   const agentSummary = ref<AgentRunSummary>({ planned: 0, executed: 0, totalSaving: 0 });
   const agentActionLimit = ref(8);
@@ -484,6 +492,16 @@ function createEnergyConsoleStore() {
       { label: "节电量", color: "#c5ff48", values: [...saving] },
       { label: "减碳量", color: "#00c2ff", values: [...carbon] },
     ];
+
+    trendDonutData.value = Array.isArray(payload.donut)
+      ? payload.donut
+          .map((item) => ({
+            label: String(item.label || ""),
+            value: Number(item.value) || 0,
+            color: String(item.color || "#8aa7b1"),
+          }))
+          .filter((item) => item.label)
+      : [];
   }
 
   async function loadAgentRuns(limit = 20) {
@@ -1267,6 +1285,10 @@ function createEnergyConsoleStore() {
   ]);
 
   const donutGroups = computed(() => {
+    if (trendDonutData.value.length) {
+      return trendDonutData.value;
+    }
+
     const sourceActions = advice.value.length
       ? advice.value.map((item) => item.action)
       : (latestCompletedAgentRun.value?.plan.actions ?? []).map((item) => item.actionLabel);
@@ -1279,6 +1301,15 @@ function createEnergyConsoleStore() {
   });
 
   const donutTotal = computed(() => donutGroups.value.reduce((sum, item) => sum + item.value, 0));
+
+  const trendSavingTotal = computed(() => {
+    const savingSeries = trendSeriesData.value.find((item) => item.label === "节电量") || trendSeriesData.value[0];
+    if (!savingSeries) return 0;
+    return savingSeries.values.reduce((sum, value) => sum + (Number(value) || 0), 0);
+  });
+
+  const trendCarbonTotal = computed(() => trendSavingTotal.value * CARBON_FACTOR);
+  const trendTreesTotal = computed(() => trendSavingTotal.value * TREE_FACTOR);
 
   const timelineRows = computed(() => [
     {
@@ -1394,8 +1425,16 @@ function createEnergyConsoleStore() {
   });
 
   const ecoMetrics = computed(() => [
-    { label: "年减碳量", value: `${heroMetrics.value.carbon.toFixed(1)} kg`, hint: "按节电量换算碳减排表现" },
-    { label: "等效种树量", value: `${heroMetrics.value.trees.toFixed(1)} 棵`, hint: "用于校园绿色成果展示" },
+    {
+      label: "年减碳量",
+      value: `${trendCarbonTotal.value.toFixed(1)} kg`,
+      hint: `按近 12 个月治理趋势推算（已落地：${heroMetrics.value.carbon.toFixed(1)} kg）`,
+    },
+    {
+      label: "等效种树量",
+      value: `${trendTreesTotal.value.toFixed(1)} 棵`,
+      hint: `按近 12 个月治理趋势推算（已落地：${heroMetrics.value.trees.toFixed(1)} 棵）`,
+    },
     { label: "节能执行次数", value: `${heroMetrics.value.executedActionCount} 次`, hint: "按自治执行与护栏执行记录统计" },
     { label: "高置信建议", value: `${heroMetrics.value.highConfidenceCount} 条`, hint: "可优先作为节能调整参考" },
   ]);

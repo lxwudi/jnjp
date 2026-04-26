@@ -6,8 +6,12 @@ import { CARBON_FACTOR, TREE_FACTOR } from "../lib/energy";
 const store = useEnergyConsole();
 
 type AgentSubview = "overview" | "guardrails";
+type AgentConfigTab = "autonomy" | "agent";
+type GuardrailConfigTab = "device" | "boundary";
 
 const activeSubview = ref<AgentSubview>("overview");
+const activeAgentConfigTab = ref<AgentConfigTab>("autonomy");
+const activeGuardrailConfigTab = ref<GuardrailConfigTab>("device");
 const agentFeedbackDetail = computed(() => {
   const detail = store.agentAutonomyRuntime.lastMessage || store.latestAgentJob?.latestMessage || store.agentStatus.message || "";
   return detail && detail !== store.agentFeedback ? detail : "";
@@ -46,23 +50,26 @@ const subviewMeta = computed(() =>
             <h4>{{ subviewMeta.title }}</h4>
             <p>{{ subviewMeta.summary }}</p>
           </div>
-          <div class="agent-subnav-actions">
-            <button
-              class="subview-switch"
-              :class="{ active: activeSubview === 'overview' }"
-              type="button"
-              @click="activeSubview = 'overview'"
-            >
-              主控总览
-            </button>
-            <button
-              class="subview-switch"
-              :class="{ active: activeSubview === 'guardrails' }"
-              type="button"
-              @click="activeSubview = 'guardrails'"
-            >
-              执行边界
-            </button>
+          <div class="agent-subnav-controls">
+            <span class="tag-pill">最近巡检 · {{ store.agentAutonomyLastCycleLabel }}</span>
+            <div class="agent-subnav-actions">
+              <button
+                class="subview-switch"
+                :class="{ active: activeSubview === 'overview' }"
+                type="button"
+                @click="activeSubview = 'overview'"
+              >
+                主控总览
+              </button>
+              <button
+                class="subview-switch"
+                :class="{ active: activeSubview === 'guardrails' }"
+                type="button"
+                @click="activeSubview = 'guardrails'"
+              >
+                执行边界
+              </button>
+            </div>
           </div>
         </div>
       </article>
@@ -75,16 +82,27 @@ const subviewMeta = computed(() =>
                 <p class="capsule-label">自治编排</p>
                 <h4>自治运行策略</h4>
               </div>
-              <div class="small-actions">
-                <span class="tag-pill">最近巡检 · {{ store.agentAutonomyLastCycleLabel }}</span>
-                <button class="ghost-btn" type="button" @click="activeSubview = 'guardrails'">查看执行边界</button>
-                <button class="primary-btn slim" type="button" :disabled="store.agentBusy" @click="store.saveAgentAutonomy">
-                  {{ store.agentBusy ? "同步中" : "保存自治配置" }}
+              <div class="small-actions panel-tab-actions">
+                <button
+                  class="panel-tab-switch"
+                  :class="{ active: activeAgentConfigTab === 'autonomy' }"
+                  type="button"
+                  @click="activeAgentConfigTab = 'autonomy'"
+                >
+                  自治配置
+                </button>
+                <button
+                  class="panel-tab-switch"
+                  :class="{ active: activeAgentConfigTab === 'agent' }"
+                  type="button"
+                  @click="activeAgentConfigTab = 'agent'"
+                >
+                  智能体配置
                 </button>
               </div>
             </div>
 
-            <div class="agent-section-card">
+            <div v-if="activeAgentConfigTab === 'autonomy'" class="agent-section-card">
               <div class="agent-section-head">
                 <div>
                   <span>调度节奏</span>
@@ -109,9 +127,15 @@ const subviewMeta = computed(() =>
                   <small>{{ store.agentAutonomyOutcomeLabel }} · {{ store.agentLatestJobStatusLabel }}</small>
                 </div>
               </div>
+
+              <div class="action-cluster wide">
+                <button class="primary-btn slim" type="button" :disabled="store.agentBusy" @click="store.saveAgentAutonomy">
+                  {{ store.agentBusy ? "同步中" : "保存自治配置" }}
+                </button>
+              </div>
             </div>
 
-            <div class="agent-section-card">
+            <div v-if="activeAgentConfigTab === 'agent'" class="agent-section-card">
               <div class="agent-section-head">
                 <div>
                   <span>模型接入</span>
@@ -183,7 +207,7 @@ const subviewMeta = computed(() =>
               </p>
             </div>
 
-            <div class="agent-section-card">
+            <div v-if="activeAgentConfigTab === 'agent'" class="agent-section-card">
               <div class="agent-section-head">
                 <div>
                   <span>目标与兜底</span>
@@ -219,7 +243,7 @@ const subviewMeta = computed(() =>
               </div>
             </div>
 
-            <div class="agent-section-card">
+            <div v-if="activeAgentConfigTab === 'autonomy'" class="agent-section-card">
               <div class="agent-section-head">
                 <div>
                   <span>运行反馈</span>
@@ -431,13 +455,27 @@ const subviewMeta = computed(() =>
                 <p class="capsule-label">执行约束</p>
                 <h4>智能体护栏</h4>
               </div>
-              <div class="small-actions">
-                <span class="tag-pill">自治执行边界</span>
-                <button class="ghost-btn" type="button" @click="activeSubview = 'overview'">返回主控总览</button>
+              <div class="small-actions panel-tab-actions">
+                <button
+                  class="panel-tab-switch"
+                  :class="{ active: activeGuardrailConfigTab === 'device' }"
+                  type="button"
+                  @click="activeGuardrailConfigTab = 'device'"
+                >
+                  设备信息
+                </button>
+                <button
+                  class="panel-tab-switch"
+                  :class="{ active: activeGuardrailConfigTab === 'boundary' }"
+                  type="button"
+                  @click="activeGuardrailConfigTab = 'boundary'"
+                >
+                  执行边界
+                </button>
               </div>
             </div>
 
-            <div class="agent-section-card">
+            <div v-if="activeGuardrailConfigTab === 'device'" class="agent-section-card">
               <div class="agent-section-head">
                 <div>
                   <span>设备信息</span>
@@ -482,7 +520,7 @@ const subviewMeta = computed(() =>
               </div>
             </div>
 
-            <div class="agent-section-card">
+            <div v-if="activeGuardrailConfigTab === 'boundary'" class="agent-section-card">
               <div class="agent-section-head">
                 <div>
                   <span>执行边界</span>

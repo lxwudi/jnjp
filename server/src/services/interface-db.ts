@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { fileURLToPath } from "node:url";
 import type {
   AdviceRecord,
   AutonomyConfig,
@@ -17,7 +18,7 @@ import { createId } from "../utils/energy.js";
 type SqlRow = Record<string, unknown>;
 
 const databaseFile = new URL("../../data/console.db", import.meta.url);
-const databasePath = databaseFile.pathname;
+const databasePath = fileURLToPath(databaseFile);
 const databaseDir = path.dirname(databasePath);
 
 fs.mkdirSync(databaseDir, { recursive: true });

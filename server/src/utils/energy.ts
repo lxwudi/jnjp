@@ -332,6 +332,15 @@ export function buildTrendSeries(executionRecords: ExecutionRecord[], fallbackPr
   const labels: string[] = [];
   const saving: number[] = [];
   const carbon: number[] = [];
+  const monthlyRealized = new Map<string, number>();
+
+  for (const record of executionRecords) {
+    const parsed = new Date(record.timeISO);
+    if (Number.isNaN(parsed.valueOf())) continue;
+    const key = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
+    const impact = Number(record.impact || 0);
+    monthlyRealized.set(key, Number(((monthlyRealized.get(key) || 0) + impact).toFixed(3)));
+  }
 
   for (let offset = 11; offset >= 0; offset -= 1) {
     const date = new Date(now.getFullYear(), now.getMonth() - offset, 1);
@@ -339,24 +348,27 @@ export function buildTrendSeries(executionRecords: ExecutionRecord[], fallbackPr
     labels.push(label);
 
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-    const records = executionRecords.filter((record) => {
-      const parsed = new Date(record.timeISO);
-      if (Number.isNaN(parsed.valueOf())) return false;
-      const recordKey = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
-      return recordKey === key;
+    saving.push(Number((monthlyRealized.get(key) || 0).toFixed(1)));
+  }
+
+  const realizedTotal = saving.reduce((sum, value) => sum + value, 0);
+  const annualTarget = Math.max(0, Number(fallbackProjectedSaving || 0), realizedTotal);
+  const remaining = Number(Math.max(annualTarget - realizedTotal, 0).toFixed(1));
+  const emptyIndexes = saving
+    .map((value, index) => ({ value, index }))
+    .filter((item) => item.value <= 0)
+    .map((item) => item.index);
+
+  if (remaining > 0 && emptyIndexes.length) {
+    const weightTotal = emptyIndexes.reduce((sum, index) => sum + index + 1, 0);
+    emptyIndexes.forEach((index) => {
+      const weight = index + 1;
+      const estimated = Number(((remaining * weight) / Math.max(weightTotal, 1)).toFixed(1));
+      saving[index] = estimated;
     });
+  }
 
-    if (records.length) {
-      const monthSaving = Number(records.reduce((sum, item) => sum + item.impact, 0).toFixed(1));
-      saving.push(monthSaving);
-      carbon.push(Number((monthSaving * CARBON_FACTOR).toFixed(1)));
-      continue;
-    }
-
-    const baseline = fallbackProjectedSaving > 0 ? fallbackProjectedSaving / 12 : 6;
-    const factor = 0.65 + ((11 - offset) % 5) * 0.08;
-    const monthSaving = Number((baseline * factor).toFixed(1));
-    saving.push(monthSaving);
+  for (const monthSaving of saving) {
     carbon.push(Number((monthSaving * CARBON_FACTOR).toFixed(1)));
   }
 
